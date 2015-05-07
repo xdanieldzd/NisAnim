@@ -8,6 +8,8 @@ using System.Text;
 using System.Windows.Forms;
 using System.Drawing.Drawing2D;
 using System.Reflection;
+using System.IO;
+using System.Text.RegularExpressions;
 
 using NisAnim.Conversion;
 
@@ -16,7 +18,7 @@ namespace NisAnim
     public partial class MainForm : Form
     {
         /* TODO add lzs decomp support? add support for separate txf files? */
-        AnmDat anmFile;
+        BaseFile loadedFile;
         object selectedObj { get { return pgObject.SelectedObject; } }
 
         bool mouseDown;
@@ -30,12 +32,6 @@ namespace NisAnim
             InitializeComponent();
 
             SetFormTitle();
-
-            if (Properties.Settings.Default.LastDat != string.Empty)
-            {
-                ofdDataFile.InitialDirectory = System.IO.Path.GetDirectoryName(Properties.Settings.Default.LastDat);
-                ofdDataFile.FileName = System.IO.Path.GetFileName(Properties.Settings.Default.LastDat);
-            }
 
             debugDrawToolStripMenuItem.Checked = Properties.Settings.Default.DebugDraw;
 
@@ -64,27 +60,57 @@ namespace NisAnim
             StringBuilder builder = new StringBuilder();
 
             builder.Append(Application.ProductName);
-            if (anmFile != null) builder.AppendFormat(" - [{0}]", System.IO.Path.GetFileName(anmFile.FilePath));
+            if (loadedFile != null) builder.AppendFormat(" - [{0}]", Path.GetFileName(loadedFile.FilePath));
 
             Text = builder.ToString();
         }
 
+        private Type IdentifyFile(string fileName)
+        {
+            Type baseType = typeof(BaseFile);
+            foreach (Type t in baseType.Assembly.GetTypes().Where(x => x.BaseType == baseType))
+            {
+                FieldInfo fi = t.GetField("FileNamePattern", BindingFlags.Public | BindingFlags.Static);
+                if (fi == null) continue;
+
+                string pat = (fi.GetValue(null) as string);
+                Regex reg = new Regex(pat);
+
+                if (reg.IsMatch(Path.GetFileName(fileName))) return t;
+            }
+
+            return null;
+        }
+
         private void openToolStripMenuItem_Click(object sender, EventArgs e)
         {
+            if (Properties.Settings.Default.LastDat != string.Empty)
+            {
+                ofdDataFile.InitialDirectory = Path.GetDirectoryName(Properties.Settings.Default.LastDat);
+                ofdDataFile.FileName = Path.GetFileName(Properties.Settings.Default.LastDat);
+            }
+
             if (ofdDataFile.ShowDialog() == System.Windows.Forms.DialogResult.OK)
             {
                 tvObject.Enabled = false;
                 pgObject.SelectedObject = null;
                 pnlRender.Invalidate();
 
-                anmFile = new AnmDat(Properties.Settings.Default.LastDat = ofdDataFile.FileName);
+                Type fileImplType = IdentifyFile(ofdDataFile.FileName);
+                if (fileImplType == null)
+                {
+                    MessageBox.Show("Could not identify file!", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                loadedFile = (BaseFile)Activator.CreateInstance(fileImplType, new object[] { (Properties.Settings.Default.LastDat = ofdDataFile.FileName) });
 
                 /* TODO have partial treeview updates? */
                 BackgroundWorker worker = new BackgroundWorker();
                 worker.DoWork += ((s, ev) =>
                 {
                     tvObject.Invoke(new Action(() => { tvObject.Nodes.Clear(); }));
-                    ev.Result = TraverseObject(null, System.IO.Path.GetFileName(anmFile.FilePath), anmFile, true);
+                    ev.Result = TraverseObject(null, Path.GetFileName(loadedFile.FilePath), loadedFile, true);
                 });
                 worker.RunWorkerCompleted += ((s, ev) =>
                 {
@@ -185,6 +211,9 @@ namespace NisAnim
         private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
         {
             Properties.Settings.Default.Save();
+
+            if (loadedFile != null)
+                loadedFile.Dispose();
         }
 
         private void pnlRender_MouseMove(object sender, MouseEventArgs e)

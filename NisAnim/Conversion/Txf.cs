@@ -88,8 +88,11 @@ namespace NisAnim.Conversion
         }
     }
 
-    public class Txf : IDisposable
+    [DisplayName("Txf Image File")]
+    public class Txf : BaseFile
     {
+        public const string FileNamePattern = "(.*?)\\.(txf)$";
+
         public static Dictionary<TxfDataFormat, int> BitsPerPixel = new Dictionary<TxfDataFormat, int>()
         {
             { TxfDataFormat.Argb8888, 32 },
@@ -114,23 +117,13 @@ namespace NisAnim.Conversion
         MemoryStream rawData;
         List<ColorPalette> palettes;
 
-        bool disposed;
-
-        private Txf()
-        {
-            PixelDataHeaders = new List<TxfHeader>();
-            PaletteDataHeaders = new List<TxfHeader>();
-            Images = new List<ImageInformation>();
-
-            StartPosition = 0;
-            palettes = new List<ColorPalette>();
-
-            disposed = false;
-        }
+        bool disposed = false;
 
         public Txf(string filePath)
-            : this()
+            : base(filePath)
         {
+            Initialize();
+
             using (EndianBinaryReader reader = new EndianBinaryReader(File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite), Endian.BigEndian))
             {
                 rawData = new MemoryStream(reader.ReadBytes((int)reader.BaseStream.Length), 0, (int)reader.BaseStream.Length, false, true);
@@ -150,8 +143,9 @@ namespace NisAnim.Conversion
         }
 
         public Txf(EndianBinaryReader reader, int imageDataSize, int numPixelHeaders, int numPaletteHeaders)
-            : this()
         {
+            Initialize();
+
             rawData = new MemoryStream(reader.ReadBytes(imageDataSize), 0, imageDataSize, false, true);
 
             using (MemoryStream tempStream = new MemoryStream(rawData.ToArray()))
@@ -166,20 +160,19 @@ namespace NisAnim.Conversion
             }
         }
 
-        ~Txf()
+        private void Initialize()
         {
-            Dispose(false);
+            PixelDataHeaders = new List<TxfHeader>();
+            PaletteDataHeaders = new List<TxfHeader>();
+            Images = new List<ImageInformation>();
+
+            StartPosition = 0;
+            palettes = new List<ColorPalette>();
         }
 
-        public void Dispose()
+        protected override void Dispose(bool disposing)
         {
-            Dispose(true);
-            GC.SuppressFinalize(this);
-        }
-
-        protected virtual void Dispose(bool disposing)
-        {
-            if (!disposed)
+            if (!this.disposed)
             {
                 if (disposing)
                 {
@@ -190,8 +183,10 @@ namespace NisAnim.Conversion
                         imageInfos.Bitmap.Dispose();
                 }
 
-                disposed = true;
+                this.disposed = true;
             }
+
+            base.Dispose(disposing);
         }
 
         public ImageInformation GetImageInformation(TxfHeader pixelDataHeader, TxfHeader paletteDataHeader)

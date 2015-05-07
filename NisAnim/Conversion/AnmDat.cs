@@ -448,10 +448,9 @@ namespace NisAnim.Conversion
     }
 
     [DisplayName("Animation Data File")]
-    public class AnmDat : IDisposable
+    public class AnmDat : BaseFile
     {
-        [Browsable(false)]
-        public string FilePath { get; private set; }
+        public const string FileNamePattern = "(anm)(.*?)\\.(dat)$";
 
         [DisplayName("Info Block Data Size")]
         public uint InfoBlockSize { get; private set; }
@@ -477,14 +476,15 @@ namespace NisAnim.Conversion
         [EditorBrowsable(EditorBrowsableState.Always)]
         public Txf TxfData { get; private set; }
 
-        bool disposed;
+        bool disposed = false;
+
+        protected AnmDat() { }
 
         public AnmDat(string filePath)
+            : base(filePath)
         {
             using (EndianBinaryReader reader = new EndianBinaryReader(File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite), Endian.BigEndian))
             {
-                FilePath = filePath;
-
                 InfoBlockSize = reader.ReadUInt32();
                 ImageDataSize = reader.ReadUInt32();
                 NumPixelDataHeaders = reader.ReadUInt32();
@@ -545,33 +545,22 @@ namespace NisAnim.Conversion
                             animationNode.ChildNode = infoBlock.AnimationNodes[animationNode.ChildNodeID];
                     }
                 }
-
-                disposed = false;
             }
         }
 
-        ~AnmDat()
+        protected override void Dispose(bool disposing)
         {
-            Dispose(false);
-        }
-
-        public void Dispose()
-        {
-            Dispose(true);
-            GC.SuppressFinalize(this);
-        }
-
-        protected virtual void Dispose(bool disposing)
-        {
-            if (!disposed)
+            if (!this.disposed)
             {
                 if (disposing)
                 {
                     TxfData.Dispose();
                 }
 
-                disposed = true;
+                this.disposed = true;
             }
+
+            base.Dispose(disposing);
         }
     }
 }
