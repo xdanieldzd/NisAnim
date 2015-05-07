@@ -208,7 +208,7 @@ namespace NisAnim.Conversion
             //ImageReferenceData imgref = ParentInfoBlock.ImageReferences[ImageNumber];
             // wrong? index out of range sometimes? also not used yet b/c i don't know how that thing works
 
-            ImageInformation image = txf.Images.FirstOrDefault(x => x.ImageNumber == ImageNumber && x.PaletteNumber == PaletteNumber);
+            ImageInformation image = txf.GetImageInformation(txf.PixelDataHeaders[ImageNumber], txf.PaletteDataHeaders[PaletteNumber]);
 
             if (image == null || Rectangle.Width == 0 || Rectangle.Height == 0)
             {
@@ -503,7 +503,7 @@ namespace NisAnim.Conversion
                     reader.BaseStream.Seek(offset + InfoBlocks[i].InfoEntrySize, SeekOrigin.Begin);
                 }
 
-                TxfData = new Txf(reader, (int)NumPixelDataHeaders, (int)NumPaletteDataHeaders);
+                TxfData = new Txf(reader, (int)ImageDataSize, (int)NumPixelDataHeaders, (int)NumPaletteDataHeaders);
 
                 foreach (InfoBlockData infoBlock in InfoBlocks)
                 {

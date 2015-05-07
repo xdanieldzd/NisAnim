@@ -68,10 +68,10 @@ namespace NisAnim.Conversion
     [DisplayName("Converted Image Information")]
     public class ImageInformation
     {
-        [DisplayName("Image Number")]
-        public int ImageNumber { get; private set; }
-        [DisplayName("Palette Number")]
-        public int PaletteNumber { get; private set; }
+        [DisplayName("Pixel Data Header")]
+        public TxfHeader PixelDataHeader { get; private set; }
+        [DisplayName("Palette Data Header")]
+        public TxfHeader PaletteDataHeader { get; private set; }
         [DisplayName("Converted Bitmap")]
         public Bitmap Bitmap { get; private set; }
 
@@ -80,10 +80,10 @@ namespace NisAnim.Conversion
         [DisplayName("Palette Offset")]
         public long PaletteOffset { get; set; }
 
-        public ImageInformation(int imageNumber, int paletteNumber, Bitmap bitmap)
+        public ImageInformation(TxfHeader pixelDataHeader, TxfHeader paletteHeader, Bitmap bitmap)
         {
-            ImageNumber = imageNumber;
-            PaletteNumber = paletteNumber;
+            PixelDataHeader = pixelDataHeader;
+            PaletteDataHeader = paletteHeader;
             Bitmap = bitmap;
         }
     }
@@ -111,6 +111,7 @@ namespace NisAnim.Conversion
         [Browsable(false)]
         public long StartPosition { get; private set; }
 
+        MemoryStream rawData;
         List<ColorPalette> palettes;
 
         bool disposed;
@@ -132,34 +133,36 @@ namespace NisAnim.Conversion
         {
             using (EndianBinaryReader reader = new EndianBinaryReader(File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite), Endian.BigEndian))
             {
-                StartPosition = reader.BaseStream.Position;
+                rawData = new MemoryStream(reader.ReadBytes((int)reader.BaseStream.Length), 0, (int)reader.BaseStream.Length, false, true);
 
-                /* Assume a single header, sure hope only anm .dat files have more than one... */
-                PixelDataHeaders.Add(new TxfHeader(reader));
-                ConvertImage(reader, PixelDataHeaders.FirstOrDefault(), null);
+                using (MemoryStream tempStream = new MemoryStream(rawData.ToArray()))
+                {
+                    using (EndianBinaryReader tempReader = new EndianBinaryReader(tempStream, Endian.BigEndian))
+                    {
+                        StartPosition = tempReader.BaseStream.Position;
+
+                        /* Assume a single header, sure hope only anm .dat files have more than one... */
+                        PixelDataHeaders.Add(new TxfHeader(tempReader));
+                        ConvertImage(tempReader, PixelDataHeaders.FirstOrDefault(), null);
+                    }
+                }
             }
         }
 
-        public Txf(EndianBinaryReader reader, int numPixelHeaders, int numPaletteHeaders)
+        public Txf(EndianBinaryReader reader, int imageDataSize, int numPixelHeaders, int numPaletteHeaders)
             : this()
         {
-            StartPosition = reader.BaseStream.Position;
+            rawData = new MemoryStream(reader.ReadBytes(imageDataSize), 0, imageDataSize, false, true);
 
-            for (int i = 0; i < numPixelHeaders; i++) PixelDataHeaders.Add(new TxfHeader(reader));
-            for (int i = 0; i < numPaletteHeaders; i++) PaletteDataHeaders.Add(new TxfHeader(reader));
-
-            // TODO don't do this, insane memory usage! generate bitmaps on demand instead?
-            foreach (TxfHeader pixelDataHeader in PixelDataHeaders)
+            using (MemoryStream tempStream = new MemoryStream(rawData.ToArray()))
             {
-                if (pixelDataHeader.IsIndexedImage)
+                using (EndianBinaryReader tempReader = new EndianBinaryReader(tempStream, Endian.BigEndian))
                 {
-                    foreach (TxfHeader paletteDataHeader in PaletteDataHeaders)
-                    {
-                        ConvertImage(reader, pixelDataHeader, paletteDataHeader);
-                    }
+                    StartPosition = tempReader.BaseStream.Position;
+
+                    for (int i = 0; i < numPixelHeaders; i++) PixelDataHeaders.Add(new TxfHeader(tempReader));
+                    for (int i = 0; i < numPaletteHeaders; i++) PaletteDataHeaders.Add(new TxfHeader(tempReader));
                 }
-                else
-                    ConvertImage(reader, pixelDataHeader, null);
             }
         }
 
@@ -180,6 +183,9 @@ namespace NisAnim.Conversion
             {
                 if (disposing)
                 {
+                    if (rawData != null)
+                        rawData.Close();
+
                     foreach (ImageInformation imageInfos in Images)
                         imageInfos.Bitmap.Dispose();
                 }
@@ -188,7 +194,22 @@ namespace NisAnim.Conversion
             }
         }
 
-        private void ConvertImage(EndianBinaryReader reader, TxfHeader pixelDataHeader, TxfHeader paletteDataHeader)
+        public ImageInformation GetImageInformation(TxfHeader pixelDataHeader, TxfHeader paletteDataHeader)
+        {
+            ImageInformation image = Images.FirstOrDefault(x => x.PixelDataHeader == pixelDataHeader && x.PaletteDataHeader == paletteDataHeader);
+
+            if (image != null) return image;
+
+            using (MemoryStream tempStream = new MemoryStream(rawData.ToArray()))
+            {
+                using (EndianBinaryReader tempReader = new EndianBinaryReader(tempStream, Endian.BigEndian))
+                {
+                    return ConvertImage(tempReader, pixelDataHeader, paletteDataHeader);
+                }
+            }
+        }
+
+        private ImageInformation ConvertImage(EndianBinaryReader reader, TxfHeader pixelDataHeader, TxfHeader paletteDataHeader)
         {
             PixelFormat pixelFormat;
             byte[] pixelData = null, paletteData = null;
@@ -268,10 +289,10 @@ namespace NisAnim.Conversion
             if (paletteDataHeader != null && paletteData != null)
                 ApplyColorPalette(bitmap, paletteData, paletteDataHeader.Format);
 
-            int imageNumber = PixelDataHeaders.IndexOf(pixelDataHeader);
-            int paletteNumber = PaletteDataHeaders.IndexOf(paletteDataHeader);
+            ImageInformation imageInfos = new ImageInformation(pixelDataHeader, paletteDataHeader, bitmap) { ImageOffset = pixelDataOffset, PaletteOffset = paletteDataOffset };
+            Images.Add(imageInfos);
 
-            Images.Add(new ImageInformation(imageNumber, paletteNumber, bitmap) { ImageOffset = pixelDataOffset, PaletteOffset = paletteDataOffset });
+            return imageInfos;
         }
 
         private byte[] GetPixelData(EndianBinaryReader reader, TxfDataFormat format, uint dataSize)
