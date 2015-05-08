@@ -17,7 +17,6 @@ namespace NisAnim
 {
     public partial class MainForm : Form
     {
-        /* TODO add lzs decomp support? add support for separate txf files? */
         BaseFile loadedFile;
         object selectedObj { get { return pgObject.SelectedObject; } }
 
@@ -152,18 +151,46 @@ namespace NisAnim
 
         private void aboutToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            MessageBox.Show("NisAnim - NIS Animation Viewer\nWritten 2015 by xdaniel - https://github.com/xdanieldzd/", "About", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show("NisAnim - NIS Animation Viewer\n\nWritten 2015 by xdaniel - https://github.com/xdanieldzd/", "About", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
+        private void saveToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (sfdDataFile.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+            {
+                if (selectedObj is ImageInformation)
+                {
+                    (selectedObj as ImageInformation).Bitmap.Save(sfdDataFile.FileName);
+                }
+                else if (selectedObj is NisPackFile)
+                {
+                    NisPackFile file = (selectedObj as NisPackFile);
+                    file.ParentFile.ExtractFile(file, sfdDataFile.FileName);
+                }
+
+                sfdDataFile.FileName = Path.GetFileName(sfdDataFile.FileName);
+            }
         }
 
         private void tvObject_AfterSelect(object sender, TreeViewEventArgs e)
         {
             pgObject.SelectedObject = e.Node.Tag;
 
-            if (selectedObj is NisPackFile)
+            if (selectedObj is ImageInformation)
             {
+                e.Node.ContextMenuStrip = cmsTreeNode;
+                sfdDataFile.Filter = "Image Files (*.png)|*.png|All Files (*.*)|*.*";
+            }
+            else if (selectedObj is NisPackFile)
+            {
+                NisPackFile file = (selectedObj as NisPackFile);
+
+                e.Node.ContextMenuStrip = cmsTreeNode;
+                sfdDataFile.Filter = "All Files (*.*)|*.*";
+                sfdDataFile.FileName = file.DecompressedFilename;
+
                 if (e.Node.Nodes.Count == 0)
                 {
-                    NisPackFile file = (selectedObj as NisPackFile);
                     if (file.DetectedFileType != null)
                     {
                         string path = Path.Combine(Path.GetTempPath(), Path.GetFileNameWithoutExtension(Path.GetRandomFileName()) + "_" + file.DecompressedFilename);

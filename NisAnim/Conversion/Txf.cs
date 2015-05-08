@@ -23,6 +23,7 @@ namespace NisAnim.Conversion
         Indexed8bpp = 0x09,
         Argb1555 = 0x0B,
         Argb4444 = 0x0C,
+        Rgb565 = 0x0D   /* assumed */
     };
 
     [DisplayName("Txf Header")]
@@ -101,7 +102,8 @@ namespace NisAnim.Conversion
             { TxfDataFormat.RgbaDxt5, 4 },
             { TxfDataFormat.Indexed8bpp, 8 },
             { TxfDataFormat.Argb1555, 16 },
-            { TxfDataFormat.Argb4444, 16 }
+            { TxfDataFormat.Argb4444, 16 },
+            { TxfDataFormat.Rgb565, 16 },
         };
 
         [DisplayName("Pixel Data Headers")]
@@ -140,6 +142,17 @@ namespace NisAnim.Conversion
                     }
                 }
             }
+        }
+
+        public Txf(EndianBinaryReader reader)
+        {
+            Initialize();
+
+            StartPosition = reader.BaseStream.Position;
+            PixelDataHeaders.Add(new TxfHeader(reader));
+            ConvertImage(reader, PixelDataHeaders.FirstOrDefault(), null);
+
+            reader.BaseStream.Seek(StartPosition + PixelDataHeaders.FirstOrDefault().Offset, SeekOrigin.Begin);
         }
 
         public Txf(EndianBinaryReader reader, int imageDataSize, int numPixelHeaders, int numPaletteHeaders)
@@ -259,6 +272,13 @@ namespace NisAnim.Conversion
                             pixelData[j + 2] = (byte)((tempData[i + 1] & 0x0F) | ((tempData[i + 1] & 0x0F) << 4));
                             pixelData[j + 3] = (byte)((tempData[i + 1] & 0xF0) | ((tempData[i + 1] & 0xF0) >> 4));
                         }
+                    }
+                    break;
+
+                case TxfDataFormat.Rgb565:
+                    {
+                        pixelFormat = PixelFormat.Format16bppRgb565;
+                        pixelData = GetPixelData(reader, pixelDataHeader.Format, pixelDataHeader.Offset);
                     }
                     break;
 

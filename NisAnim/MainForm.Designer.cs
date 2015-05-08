@@ -28,6 +28,7 @@
         /// </summary>
         private void InitializeComponent()
         {
+            this.components = new System.ComponentModel.Container();
             this.pgObject = new System.Windows.Forms.PropertyGrid();
             this.msMainMenu = new System.Windows.Forms.MenuStrip();
             this.fileToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -43,10 +44,14 @@
             this.ofdDataFile = new System.Windows.Forms.OpenFileDialog();
             this.ssMainStatus = new System.Windows.Forms.StatusStrip();
             this.tsslStatus = new System.Windows.Forms.ToolStripStatusLabel();
+            this.cmsTreeNode = new System.Windows.Forms.ContextMenuStrip(this.components);
+            this.saveToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.pnlRender = new NisAnim.PanelEx();
             this.tvObject = new NisAnim.TreeViewEx();
+            this.sfdDataFile = new System.Windows.Forms.SaveFileDialog();
             this.msMainMenu.SuspendLayout();
             this.ssMainStatus.SuspendLayout();
+            this.cmsTreeNode.SuspendLayout();
             this.SuspendLayout();
             // 
             // pgObject
@@ -163,6 +168,20 @@
             this.tsslStatus.Size = new System.Drawing.Size(22, 17);
             this.tsslStatus.Text = "---";
             // 
+            // cmsTreeNode
+            // 
+            this.cmsTreeNode.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.saveToolStripMenuItem});
+            this.cmsTreeNode.Name = "cmsTreeNode";
+            this.cmsTreeNode.Size = new System.Drawing.Size(108, 26);
+            // 
+            // saveToolStripMenuItem
+            // 
+            this.saveToolStripMenuItem.Name = "saveToolStripMenuItem";
+            this.saveToolStripMenuItem.Size = new System.Drawing.Size(107, 22);
+            this.saveToolStripMenuItem.Text = "&Save...";
+            this.saveToolStripMenuItem.Click += new System.EventHandler(this.saveToolStripMenuItem_Click);
+            // 
             // pnlRender
             // 
             this.pnlRender.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
@@ -206,6 +225,7 @@
             this.msMainMenu.PerformLayout();
             this.ssMainStatus.ResumeLayout(false);
             this.ssMainStatus.PerformLayout();
+            this.cmsTreeNode.ResumeLayout(false);
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -230,6 +250,9 @@
         private System.Windows.Forms.ToolStripStatusLabel tsslStatus;
         private System.Windows.Forms.ToolStripMenuItem helpToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem aboutToolStripMenuItem;
+        private System.Windows.Forms.ContextMenuStrip cmsTreeNode;
+        private System.Windows.Forms.ToolStripMenuItem saveToolStripMenuItem;
+        private System.Windows.Forms.SaveFileDialog sfdDataFile;
     }
 }
 
