@@ -9,9 +9,9 @@ using System.Windows.Forms;
 using System.Drawing.Drawing2D;
 using System.Reflection;
 using System.IO;
-using System.Text.RegularExpressions;
 
 using NisAnim.Conversion;
+using NisAnim.IO;
 
 namespace NisAnim
 {
@@ -65,23 +65,6 @@ namespace NisAnim
             Text = builder.ToString();
         }
 
-        private Type IdentifyFile(string fileName)
-        {
-            Type baseType = typeof(BaseFile);
-            foreach (Type t in baseType.Assembly.GetTypes().Where(x => x.BaseType == baseType))
-            {
-                FieldInfo fi = t.GetField("FileNamePattern", BindingFlags.Public | BindingFlags.Static);
-                if (fi == null) continue;
-
-                string pat = (fi.GetValue(null) as string);
-                Regex reg = new Regex(pat);
-
-                if (reg.IsMatch(Path.GetFileName(fileName))) return t;
-            }
-
-            return null;
-        }
-
         private void openToolStripMenuItem_Click(object sender, EventArgs e)
         {
             if (Properties.Settings.Default.LastDat != string.Empty)
@@ -96,35 +79,59 @@ namespace NisAnim
                 pgObject.SelectedObject = null;
                 pnlRender.Invalidate();
 
-                Type fileImplType = IdentifyFile(ofdDataFile.FileName);
-                if (fileImplType == null)
+                BackgroundWorker fileWorker = new BackgroundWorker();
+                fileWorker.DoWork += ((s, ev) =>
                 {
-                    MessageBox.Show("Could not identify file!", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    return;
-                }
+                    Type fileImplType = null;
+                    using (EndianBinaryReader reader = new EndianBinaryReader(File.Open(ofdDataFile.FileName, FileMode.Open, FileAccess.Read, FileShare.ReadWrite), Endian.BigEndian))
+                    {
+                        fileImplType = FileHelpers.IdentifyFile(reader, ofdDataFile.FileName);
+                    }
 
-                loadedFile = (BaseFile)Activator.CreateInstance(fileImplType, new object[] { (Properties.Settings.Default.LastDat = ofdDataFile.FileName) });
+                    if (fileImplType == null)
+                    {
+                        MessageBox.Show("Could not identify file!", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        ev.Result = false;
+                    }
+                    else
+                    {
+                        loadedFile = (BaseFile)Activator.CreateInstance(fileImplType, new object[] { (Properties.Settings.Default.LastDat = ofdDataFile.FileName) });
+                        this.Invoke(new Action(() => { SetFormTitle(); }));
 
-                /* TODO have partial treeview updates? */
-                BackgroundWorker worker = new BackgroundWorker();
-                worker.DoWork += ((s, ev) =>
-                {
-                    tvObject.Invoke(new Action(() => { tvObject.Nodes.Clear(); }));
-                    ev.Result = TraverseObject(null, Path.GetFileName(loadedFile.FilePath), loadedFile, true);
-                });
-                worker.RunWorkerCompleted += ((s, ev) =>
-                {
-                    tvObject.Enabled = true;
-                    tvObject.Focus();
-                    tvObject.Nodes.Add((TreeNode)ev.Result);
-
-                    tsslStatus.Text = "File loaded";
+                        ev.Result = true;
+                    }
                 });
 
-                tsslStatus.Text = "Generating tree...";
-                worker.RunWorkerAsync();
+                fileWorker.RunWorkerCompleted += ((s, ev) =>
+                {
+                    if ((bool)ev.Result == false)
+                    {
+                        tsslStatus.Text = "Ready";
+                        return;
+                    }
 
-                SetFormTitle();
+                    /* TODO have partial treeview updates? */
+                    BackgroundWorker treeWorker = new BackgroundWorker();
+                    treeWorker.DoWork += ((s2, ev2) =>
+                    {
+                        tvObject.Invoke(new Action(() => { tvObject.Nodes.Clear(); }));
+                        ev2.Result = FileHelpers.TraverseObject(null, Path.GetFileName(loadedFile.FilePath), loadedFile, true);
+                    });
+                    treeWorker.RunWorkerCompleted += ((s2, ev2) =>
+                    {
+                        tvObject.Enabled = true;
+                        tvObject.Focus();
+                        tvObject.Nodes.Add((TreeNode)ev2.Result);
+
+                        tsslStatus.Text = "File loaded";
+                    });
+
+                    tsslStatus.Text = "Generating tree...";
+                    treeWorker.RunWorkerAsync();
+                });
+
+                tsslStatus.Text = "Loading file...";
+                fileWorker.RunWorkerAsync();
             }
         }
 
@@ -148,55 +155,29 @@ namespace NisAnim
             MessageBox.Show("NisAnim - NIS Animation Viewer\nWritten 2015 by xdaniel - https://github.com/xdanieldzd/", "About", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
-        private TreeNode TraverseObject(TreeNode parentNode, string name, object obj, bool recurse = false)
-        {
-            if (obj == null) return null;
-
-            DisplayNameAttribute objDisplayName = (obj.GetType().GetCustomAttributes(false).FirstOrDefault(x => x.GetType() == typeof(DisplayNameAttribute)) as DisplayNameAttribute);
-            TreeNode node = new TreeNode(objDisplayName != null ? string.Format("{0} [{1}]", name, objDisplayName.DisplayName) : name) { Tag = obj };
-
-            if (!(obj is System.Collections.ICollection))
-            {
-                var props = obj.GetType()
-                    .GetProperties(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public)
-                    .Where(x => x.PropertyType.IsArray ||
-                        (x.PropertyType.IsGenericType && x.PropertyType.GetGenericTypeDefinition() == typeof(List<>)) ||
-                        x.GetCustomAttributes(false).FirstOrDefault(y => (y is EditorBrowsableAttribute) && (y as EditorBrowsableAttribute).State != EditorBrowsableState.Never) != null);
-
-                foreach (var prop in props)
-                {
-                    var val = prop.GetValue(obj, null);
-                    if (val == null) continue;
-
-                    DisplayNameAttribute propDisplayName = (prop.GetCustomAttributes(false).FirstOrDefault(x => x.GetType() == typeof(DisplayNameAttribute)) as DisplayNameAttribute);
-                    if (((val is System.Collections.ICollection) &&
-                        (!(val as System.Collections.ICollection).AsQueryable().ElementType.IsValueType) && (val as System.Collections.ICollection).Count > 0) ||
-                        (!(val is System.Collections.ICollection)))
-                    {
-                        if (recurse)
-                            node.Nodes.Add(TraverseObject(node, propDisplayName != null ? propDisplayName.DisplayName : prop.Name, val, recurse));
-                        else
-                            node.Nodes.Add(new TreeNode(propDisplayName != null ? propDisplayName.DisplayName : prop.Name) { Tag = val });
-                    }
-                }
-            }
-            else
-            {
-                foreach (var e in (obj as IEnumerable<object>).Select((Value, Index) => new { Index, Value }))
-                {
-                    if (recurse)
-                        node.Nodes.Add(TraverseObject(node, string.Format("{0}", e.Index), e.Value, recurse));
-                    else
-                        node.Nodes.Add(new TreeNode(string.Format("{0}", e.Index)) { Tag = e });
-                }
-            }
-
-            return node;
-        }
-
         private void tvObject_AfterSelect(object sender, TreeViewEventArgs e)
         {
             pgObject.SelectedObject = e.Node.Tag;
+
+            if (selectedObj is NisPackFile)
+            {
+                if (e.Node.Nodes.Count == 0)
+                {
+                    NisPackFile file = (selectedObj as NisPackFile);
+                    if (file.DetectedFileType != null)
+                    {
+                        string path = Path.Combine(Path.GetTempPath(), Path.GetFileNameWithoutExtension(Path.GetRandomFileName()) + "_" + file.DecompressedFilename);
+
+                        file.ParentFile.ExtractFile(file, path);
+                        object tempObject = (BaseFile)Activator.CreateInstance(file.DetectedFileType, new object[] { path });
+                        e.Node.Nodes.Add(FileHelpers.TraverseObject(e.Node, file.DecompressedFilename, tempObject, true));
+
+                        if (File.Exists(path))
+                            File.Delete(path);
+                    }
+                }
+            }
+
             pnlRender.Invalidate();
 
             animCounter = 0;
