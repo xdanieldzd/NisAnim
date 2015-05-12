@@ -66,6 +66,11 @@ namespace NisAnim.OpenGL
 
         public void AddTexture(string name, Bitmap image)
         {
+            AddTexture(name, image, TextureWrapMode.Repeat, TextureWrapMode.Repeat, TextureMinFilter.Linear, TextureMagFilter.Linear);
+        }
+
+        public void AddTexture(string name, Bitmap image, TextureWrapMode wrapS, TextureWrapMode wrapT, TextureMinFilter minFilter, TextureMagFilter magFilter)
+        {
             if (name == string.Empty) throw new GLException(string.Format("{0}: name cannot be empty", System.Reflection.MethodBase.GetCurrentMethod()));
             if (image == null) throw new GLException(string.Format("{0}: image cannot be null", System.Reflection.MethodBase.GetCurrentMethod()));
 
@@ -81,10 +86,10 @@ namespace NisAnim.OpenGL
             BitmapData bmpData = newImage.LockBits(new Rectangle(0, 0, newImage.Width, newImage.Height), ImageLockMode.ReadOnly, newImage.PixelFormat);
 
             GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, newImage.Width, newImage.Height, 0, OpenTK.Graphics.OpenGL.PixelFormat.Bgra, PixelType.UnsignedByte, bmpData.Scan0);
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)TextureWrapMode.ClampToEdge);
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)TextureWrapMode.ClampToEdge);
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Linear);
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Linear);
+            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)wrapS);
+            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)wrapT);
+            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)minFilter);
+            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)magFilter);
 
             newImage.UnlockBits(bmpData);
 

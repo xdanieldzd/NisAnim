@@ -97,7 +97,7 @@ namespace NisAnim.Conversion
         {
             string objectName = string.Format("{0}_hash-{1}", this.GetType().Name, this.GetHashCode());
 
-            glHelper.Textures.AddTexture(objectName, Bitmap);
+            glHelper.Textures.AddTexture(objectName, Bitmap, OGL.TextureWrapMode.ClampToEdge, OGL.TextureWrapMode.ClampToEdge, OGL.TextureMinFilter.Linear, OGL.TextureMagFilter.Linear);
             glHelper.Buffers.AddVertices(objectName, new GLVertex[]
             {
                 new GLVertex(new Vector3(0.0f, 0.0f, 0.0f), Vector3.Zero, OpenTK.Graphics.Color4.White, new Vector2(0.0f, 0.0f)),

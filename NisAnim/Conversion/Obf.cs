@@ -16,7 +16,7 @@ namespace NisAnim.Conversion
     [DisplayName("Object List Entry")]
     public class ObfObjectListEntry
     {
-        [DisplayName("Parent")]
+        [DisplayName("[Parent]")]
         public ObfObjectList Parent { get; private set; }
 
         [DisplayName("Number of Primitives")]
@@ -71,7 +71,7 @@ namespace NisAnim.Conversion
     [DisplayName("Object List")]
     public class ObfObjectList
     {
-        [DisplayName("Parent")]
+        [DisplayName("[Parent]")]
         public Obf Parent { get; private set; }
 
         [DisplayName("Number of Objects")]
@@ -105,7 +105,7 @@ namespace NisAnim.Conversion
     [DisplayName("Primitive List Entry")]
     public class ObfPrimitiveListEntry
     {
-        [DisplayName("Parent")]
+        [DisplayName("[Parent]")]
         public ObfPrimitiveList Parent { get; private set; }
 
         [DisplayName("Number of Vertex Indices")]
@@ -125,17 +125,29 @@ namespace NisAnim.Conversion
         [DisplayName("Unknown Float 0x1C")]
         public float UnknownFloat0x1C { get; private set; }
         [DisplayName("Unknown 0x20")]
-        public ushort Unknown0x20 { get; private set; }
+        public byte Unknown0x20 { get; private set; }
+        [DisplayName("Unknown 0x21")]
+        public byte Unknown0x21 { get; private set; }
         [DisplayName("Unknown 0x22")]
-        public ushort Unknown0x22 { get; private set; }
+        public byte Unknown0x22 { get; private set; }
+        [DisplayName("Unknown 0x23")]
+        public byte Unknown0x23 { get; private set; }
         [DisplayName("Unknown 0x24")]
-        public ushort Unknown0x24 { get; private set; }
+        public byte Unknown0x24 { get; private set; }
+        [DisplayName("Unknown 0x25")]
+        public byte Unknown0x25 { get; private set; }
         [DisplayName("Unknown 0x26")]
-        public ushort Unknown0x26 { get; private set; }
+        public byte Unknown0x26 { get; private set; }
+        [DisplayName("Unknown 0x27")]
+        public byte Unknown0x27 { get; private set; }
         [DisplayName("Unknown 0x28")]
-        public ushort Unknown0x28 { get; private set; }
+        public byte Unknown0x28 { get; private set; }
+        [DisplayName("Unknown 0x29")]
+        public byte Unknown0x29 { get; private set; }
         [DisplayName("Unknown 0x2A")]
-        public ushort Unknown0x2A { get; private set; }
+        public byte Unknown0x2A { get; private set; }
+        [DisplayName("Unknown 0x2B")]
+        public byte Unknown0x2B { get; private set; }
         [DisplayName("Unknown 0x2C")]
         public int Unknown0x2C { get; private set; }
         [DisplayName("Vertex Indices")]
@@ -156,12 +168,18 @@ namespace NisAnim.Conversion
             UnknownFloat0x14 = reader.ReadSingle();
             UnknownFloat0x18 = reader.ReadSingle();
             UnknownFloat0x1C = reader.ReadSingle();
-            Unknown0x20 = reader.ReadUInt16();
-            Unknown0x22 = reader.ReadUInt16();
-            Unknown0x24 = reader.ReadUInt16();
-            Unknown0x26 = reader.ReadUInt16();
-            Unknown0x28 = reader.ReadUInt16();
-            Unknown0x2A = reader.ReadUInt16();
+            Unknown0x20 = reader.ReadByte();
+            Unknown0x21 = reader.ReadByte();
+            Unknown0x22 = reader.ReadByte();
+            Unknown0x23 = reader.ReadByte();
+            Unknown0x24 = reader.ReadByte();
+            Unknown0x25 = reader.ReadByte();
+            Unknown0x26 = reader.ReadByte();
+            Unknown0x27 = reader.ReadByte();
+            Unknown0x28 = reader.ReadByte();
+            Unknown0x29 = reader.ReadByte();
+            Unknown0x2A = reader.ReadByte();
+            Unknown0x2B = reader.ReadByte();
             Unknown0x2C = reader.ReadInt32();
 
             VertexIndices = new uint[NumVertexIndices];
@@ -200,7 +218,7 @@ namespace NisAnim.Conversion
     [DisplayName("Primitive List")]
     public class ObfPrimitiveList
     {
-        [DisplayName("Parent")]
+        [DisplayName("[Parent]")]
         public Obf Parent { get; private set; }
 
         [DisplayName("Number of Primitives")]
@@ -236,15 +254,15 @@ namespace NisAnim.Conversion
     {
         public const int Size = 0x3C;
 
-        [DisplayName("Parent")]
+        [DisplayName("[Parent]")]
         public ObfPrimitiveListEntry Parent { get; private set; }
 
         [DisplayName("Position")]
         public Vector3 Position { get; private set; }
         [DisplayName("Normals")]
         public Vector3 Normals { get; private set; }
-        [DisplayName("Inverted Normals?")]
-        public Vector3 NormalsInverted { get; private set; }
+        [DisplayName("Unknown Vector3 0x18")]
+        public Vector3 UnknownVector0x18 { get; private set; }
         [DisplayName("Unknown Float 0x24")]
         public float UnknownFloat0x24 { get; private set; }
         [DisplayName("Unknown Float 0x28")]
@@ -260,10 +278,10 @@ namespace NisAnim.Conversion
         {
             Parent = parent;
 
-            /* TODO really invert those values? things appear mirrored if not...? (albatross collar floor, geoblocks?) */
-            Position = new Vector3(-reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle());
-            Normals = new Vector3(-reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle());
-            NormalsInverted = new Vector3(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle());
+            /* TODO: using X position & normal as-is makes certain things appear mirrored (ex. albatross collar floor, geoblocks?); just inverting them feels wrong somehow, tho... */
+            Position = new Vector3(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle());
+            Normals = new Vector3(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle());
+            UnknownVector0x18 = new Vector3(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle());
             UnknownFloat0x24 = reader.ReadSingle();
             UnknownFloat0x28 = reader.ReadSingle();
             UnknownFloat0x2C = reader.ReadSingle();
@@ -275,7 +293,7 @@ namespace NisAnim.Conversion
     [DisplayName("Txf List Entry")]
     public class ObfTxfListEntry
     {
-        [DisplayName("Parent")]
+        [DisplayName("[Parent]")]
         public ObfTxfList Parent { get; private set; }
 
         [DisplayName("Unknown 0x00")]
@@ -296,7 +314,7 @@ namespace NisAnim.Conversion
     [DisplayName("Txf List")]
     public class ObfTxfList
     {
-        [DisplayName("Parent")]
+        [DisplayName("[Parent]")]
         public Obf Parent { get; private set; }
 
         [DisplayName("Number of Textures")]
@@ -348,11 +366,11 @@ namespace NisAnim.Conversion
         public uint UnknownOffset0x18 { get; private set; }
         [DisplayName("Unknown Offset 0x1C")]
         public uint UnknownOffset0x1C { get; private set; }
-        [DisplayName("Unknown Offset 0x20")]
-        public uint UnknownOffset0x20 { get; private set; }
-        [DisplayName("Primitive List Offset?")]
+        [DisplayName("Object List Offset")]
+        public uint ObjectListOffset { get; private set; }
+        [DisplayName("Primitive List Offset")]
         public uint PrimitiveListOffset { get; private set; }
-        [DisplayName("Vertex Data Offset?")]
+        [DisplayName("Vertex Data Offset")]
         public uint VertexDataOffset { get; private set; }
         [DisplayName("Txf List Offset")]
         public uint TxfListOffset { get; private set; }
@@ -384,12 +402,12 @@ namespace NisAnim.Conversion
                 UnknownOffset0x14 = reader.ReadUInt32();
                 UnknownOffset0x18 = reader.ReadUInt32();
                 UnknownOffset0x1C = reader.ReadUInt32();
-                UnknownOffset0x20 = reader.ReadUInt32();
+                ObjectListOffset = reader.ReadUInt32();
                 PrimitiveListOffset = reader.ReadUInt32();
                 VertexDataOffset = reader.ReadUInt32();
                 TxfListOffset = reader.ReadUInt32();
 
-                reader.BaseStream.Seek(UnknownOffset0x20, SeekOrigin.Begin);
+                reader.BaseStream.Seek(ObjectListOffset, SeekOrigin.Begin);
                 ObjectList = new ObfObjectList(this, reader);
 
                 reader.BaseStream.Seek(PrimitiveListOffset, SeekOrigin.Begin);

@@ -236,7 +236,7 @@ namespace NisAnim.Conversion
 
             if (!glHelper.Textures.HasTexture(objectName))
             {
-                glHelper.Textures.AddTexture(objectName, Image);
+                glHelper.Textures.AddTexture(objectName, Image, TextureWrapMode.ClampToEdge, TextureWrapMode.ClampToEdge, TextureMinFilter.Linear, TextureMagFilter.Linear);
                 glHelper.Buffers.AddVertices(objectName, new GLVertex[]
                 {
                     new GLVertex(new Vector3(0.0f, 0.0f, 0.0f), Vector3.Zero, OpenTK.Graphics.Color4.White, new Vector2(0.0f, 0.0f)),
