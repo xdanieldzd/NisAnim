@@ -46,9 +46,10 @@
             this.tsslStatus = new System.Windows.Forms.ToolStripStatusLabel();
             this.cmsTreeNode = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.saveToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.sfdDataFile = new System.Windows.Forms.SaveFileDialog();
+            this.glControl = new OpenTK.GLControl();
             this.pnlRender = new NisAnim.PanelEx();
             this.tvObject = new NisAnim.TreeViewEx();
-            this.sfdDataFile = new System.Windows.Forms.SaveFileDialog();
             this.msMainMenu.SuspendLayout();
             this.ssMainStatus.SuspendLayout();
             this.cmsTreeNode.SuspendLayout();
@@ -182,22 +183,36 @@
             this.saveToolStripMenuItem.Text = "&Save...";
             this.saveToolStripMenuItem.Click += new System.EventHandler(this.saveToolStripMenuItem_Click);
             // 
+            // glControl
+            // 
+            this.glControl.BackColor = System.Drawing.Color.Black;
+            this.glControl.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.glControl.Location = new System.Drawing.Point(275, 24);
+            this.glControl.Name = "glControl";
+            this.glControl.Size = new System.Drawing.Size(348, 636);
+            this.glControl.TabIndex = 0;
+            this.glControl.VSync = false;
+            this.glControl.KeyDown += new System.Windows.Forms.KeyEventHandler(this.glControl_KeyDown);
+            this.glControl.KeyUp += new System.Windows.Forms.KeyEventHandler(this.glControl_KeyUp);
+            this.glControl.Leave += new System.EventHandler(this.glControl_Leave);
+            this.glControl.MouseDown += new System.Windows.Forms.MouseEventHandler(this.glControl_MouseDown);
+            this.glControl.MouseMove += new System.Windows.Forms.MouseEventHandler(this.glControl_MouseMove);
+            this.glControl.MouseUp += new System.Windows.Forms.MouseEventHandler(this.glControl_MouseUp);
+            // 
             // pnlRender
             // 
             this.pnlRender.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.pnlRender.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.pnlRender.Location = new System.Drawing.Point(275, 24);
+            this.pnlRender.Dock = System.Windows.Forms.DockStyle.Right;
+            this.pnlRender.Location = new System.Drawing.Point(623, 24);
             this.pnlRender.Name = "pnlRender";
-            this.pnlRender.Size = new System.Drawing.Size(714, 636);
+            this.pnlRender.Size = new System.Drawing.Size(366, 636);
             this.pnlRender.TabIndex = 1;
             this.pnlRender.Paint += new System.Windows.Forms.PaintEventHandler(this.pnlRender_Paint);
-            this.pnlRender.MouseDown += new System.Windows.Forms.MouseEventHandler(this.pnlRender_MouseDown);
-            this.pnlRender.MouseMove += new System.Windows.Forms.MouseEventHandler(this.pnlRender_MouseMove);
-            this.pnlRender.MouseUp += new System.Windows.Forms.MouseEventHandler(this.pnlRender_MouseUp);
             // 
             // tvObject
             // 
             this.tvObject.Dock = System.Windows.Forms.DockStyle.Left;
+            this.tvObject.HideSelection = false;
             this.tvObject.Location = new System.Drawing.Point(0, 24);
             this.tvObject.Name = "tvObject";
             this.tvObject.Size = new System.Drawing.Size(275, 636);
@@ -209,6 +224,7 @@
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(1264, 682);
+            this.Controls.Add(this.glControl);
             this.Controls.Add(this.pnlRender);
             this.Controls.Add(this.pgObject);
             this.Controls.Add(this.tvObject);
@@ -253,6 +269,7 @@
         private System.Windows.Forms.ContextMenuStrip cmsTreeNode;
         private System.Windows.Forms.ToolStripMenuItem saveToolStripMenuItem;
         private System.Windows.Forms.SaveFileDialog sfdDataFile;
+        private OpenTK.GLControl glControl;
     }
 }
 

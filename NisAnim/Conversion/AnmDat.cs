@@ -7,7 +7,13 @@ using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.ComponentModel;
 
+using OpenTK;
+using OpenTK.Graphics;
+using OpenTK.Graphics.OpenGL;
+
 using NisAnim.IO;
+using NisAnim.OpenGL;
+
 
 namespace NisAnim.Conversion
 {
@@ -208,9 +214,9 @@ namespace NisAnim.Conversion
             //ImageReferenceData imgref = ParentInfoBlock.ImageReferences[ImageNumber];
             // wrong? index out of range sometimes? also not used yet b/c i don't know how that thing works
 
-            ImageInformation image = txf.GetImageInformation(txf.PixelDataHeaders[ImageNumber], txf.PaletteDataHeaders[PaletteNumber]);
+            ImageInformation imageInfos = txf.GetImageInformation(txf.PixelDataHeaders[ImageNumber], txf.PaletteDataHeaders[PaletteNumber]);
 
-            if (image == null || Rectangle.Width == 0 || Rectangle.Height == 0)
+            if (imageInfos == null || Rectangle.Width == 0 || Rectangle.Height == 0)
             {
                 Image = new Bitmap(4, 4);
                 return;
@@ -220,13 +226,29 @@ namespace NisAnim.Conversion
 
             using (Graphics g = Graphics.FromImage(Image))
             {
-                g.DrawImage(image.Bitmap, new Rectangle(0, 0, Image.Width, Image.Height), Rectangle, GraphicsUnit.Pixel);
+                g.DrawImage(imageInfos.Bitmap, new Rectangle(0, 0, Image.Width, Image.Height), Rectangle, GraphicsUnit.Pixel);
+            }
+        }
+
+        public string PrepareRender(GLHelper glHelper)
+        {
+            string objectName = string.Format("{0}_hash-{1}", this.GetType().Name, this.GetHashCode());
+
+            if (!glHelper.Textures.HasTexture(objectName))
+            {
+                glHelper.Textures.AddTexture(objectName, Image);
+                glHelper.Buffers.AddVertices(objectName, new GLVertex[]
+                {
+                    new GLVertex(new Vector3(0.0f, 0.0f, 0.0f), Vector3.Zero, OpenTK.Graphics.Color4.White, new Vector2(0.0f, 0.0f)),
+                    new GLVertex(new Vector3(0.0f, Image.Height, 0.0f), Vector3.Zero, OpenTK.Graphics.Color4.White, new Vector2(0.0f, 1.0f)),
+                    new GLVertex(new Vector3(Image.Width, Image.Height, 0.0f), Vector3.Zero, OpenTK.Graphics.Color4.White, new Vector2(1.0f, 1.0f)),
+                    new GLVertex(new Vector3(Image.Width, 0.0f, 0.0f), Vector3.Zero, OpenTK.Graphics.Color4.White, new Vector2(1.0f, 0.0f))
+                });
+
+                glHelper.Buffers.AddIndices(objectName, new uint[] { 0, 1, 2, 2, 3, 0 }, PrimitiveType.Triangles);
             }
 
-            /*System.Drawing.Imaging.BitmapData bmpd = Image.LockBits(new Rectangle(0, 0, Image.Width, Image.Height), System.Drawing.Imaging.ImageLockMode.ReadWrite, Image.PixelFormat);
-            byte[] tmp = new byte[bmpd.Height * bmpd.Stride];
-            System.Runtime.InteropServices.Marshal.Copy(bmpd.Scan0, tmp, 0, tmp.Length);
-            Image.UnlockBits(bmpd);*/
+            return objectName;
         }
     }
 

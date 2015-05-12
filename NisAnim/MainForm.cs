@@ -10,13 +10,25 @@ using System.Drawing.Drawing2D;
 using System.Reflection;
 using System.IO;
 
+using OpenTK;
+using OpenTK.Graphics.OpenGL;
+
 using NisAnim.Conversion;
 using NisAnim.IO;
+using NisAnim.OpenGL;
 
 namespace NisAnim
 {
     public partial class MainForm : Form
     {
+        const string oglMarkerName = "marker";
+        const string oglEmptyTexture = "empty";
+        const string oglDefaultShaderName = "default";
+
+        GLHelper glHelper;
+        Matrix4 currentMatrix;
+        string glObjectName;
+
         BaseFile loadedFile;
         object selectedObj { get { return pgObject.SelectedObject; } }
 
@@ -29,6 +41,32 @@ namespace NisAnim
         public MainForm()
         {
             InitializeComponent();
+
+            glHelper = new GLHelper(glControl, new Action(Render)) { ClearColor = Color.SkyBlue, };
+            glControl.Resize += ((s, e) =>
+            {
+                glHelper.Viewport = (s as GLControl).ClientRectangle;
+            });
+            glControl.Load += ((s, e) =>
+            {
+                glHelper.Textures.AddTexture(oglEmptyTexture, Properties.Resources.Empty);
+                glHelper.Shaders.AddProgramWithShaders(oglDefaultShaderName,
+                    File.ReadAllText("Data\\Default.vert"),
+                    File.ReadAllText("Data\\Default.frag"));
+
+                glHelper.Buffers.AddVertices(oglMarkerName, new GLVertex[]
+                {
+                    new GLVertex(new Vector3(-300.0f, 0.0f, 0.0f), Vector3.Zero, OpenTK.Graphics.Color4.Black, Vector2.Zero),
+                    new GLVertex(new Vector3(300.0f, 0.0f, 0.0f), Vector3.Zero, OpenTK.Graphics.Color4.Black, Vector2.Zero),
+                    new GLVertex(new Vector3(0.0f, 300.0f, 0.0f), Vector3.Zero, OpenTK.Graphics.Color4.Black, Vector2.Zero),
+                    new GLVertex(new Vector3(0.0f, -300.0f, 0.0f), Vector3.Zero, OpenTK.Graphics.Color4.Black, Vector2.Zero)
+                });
+
+                glHelper.Buffers.AddIndices(oglMarkerName, new uint[] { 0, 1, 2, 3 }, PrimitiveType.Lines);
+            });
+
+            currentMatrix = Matrix4.Identity;
+            glObjectName = string.Empty;
 
             SetFormTitle();
 
@@ -51,7 +89,19 @@ namespace NisAnim
 
             timer.Start();
 
+            Application.Idle += ((s, e) =>
+            {
+                if (glControl.IsIdle)
+                    glControl.Invalidate();
+            });
+
             tsslStatus.Text = "Ready";
+
+            // TEMP TEMP TEMP
+            // TEMP TEMP TEMP
+            pnlRender.Visible = false;
+            // TEMP TEMP TEMP
+            // TEMP TEMP TEMP
         }
 
         private void SetFormTitle()
@@ -77,6 +127,8 @@ namespace NisAnim
                 tvObject.Enabled = false;
                 pgObject.SelectedObject = null;
                 pnlRender.Invalidate();
+
+                ClearObjects();
 
                 BackgroundWorker fileWorker = new BackgroundWorker();
                 fileWorker.DoWork += ((s, ev) =>
@@ -158,14 +210,18 @@ namespace NisAnim
         {
             if (sfdDataFile.ShowDialog() == System.Windows.Forms.DialogResult.OK)
             {
-                if (selectedObj is ImageInformation)
-                {
-                    (selectedObj as ImageInformation).Bitmap.Save(sfdDataFile.FileName);
-                }
-                else if (selectedObj is NisPackFile)
+                if (selectedObj is NisPackFile)
                 {
                     NisPackFile file = (selectedObj as NisPackFile);
                     file.ParentFile.ExtractFile(file, sfdDataFile.FileName);
+                }
+                else if (selectedObj is ImageInformation)
+                {
+                    (selectedObj as ImageInformation).Bitmap.Save(sfdDataFile.FileName);
+                }
+                else if (selectedObj is SpriteData)
+                {
+                    (selectedObj as SpriteData).Image.Save(sfdDataFile.FileName);
                 }
 
                 sfdDataFile.FileName = Path.GetFileName(sfdDataFile.FileName);
@@ -176,12 +232,9 @@ namespace NisAnim
         {
             pgObject.SelectedObject = e.Node.Tag;
 
-            if (selectedObj is ImageInformation)
-            {
-                e.Node.ContextMenuStrip = cmsTreeNode;
-                sfdDataFile.Filter = "Image Files (*.png)|*.png|All Files (*.*)|*.*";
-            }
-            else if (selectedObj is NisPackFile)
+            ClearObjects();
+
+            if (selectedObj is NisPackFile)
             {
                 NisPackFile file = (selectedObj as NisPackFile);
 
@@ -204,6 +257,27 @@ namespace NisAnim
                     }
                 }
             }
+            else if (selectedObj is ImageInformation)
+            {
+                e.Node.ContextMenuStrip = cmsTreeNode;
+                sfdDataFile.Filter = "Image Files (*.png)|*.png|All Files (*.*)|*.*";
+
+                ImageInformation image = (selectedObj as ImageInformation);
+                glObjectName = image.PrepareRender(glHelper);
+            }
+            else if (selectedObj is SpriteData)
+            {
+                e.Node.ContextMenuStrip = cmsTreeNode;
+                sfdDataFile.Filter = "Image Files (*.png)|*.png|All Files (*.*)|*.*";
+
+                SpriteData sprite = (selectedObj as SpriteData);
+                glObjectName = sprite.PrepareRender(glHelper);
+            }
+            else if (selectedObj is ObfPrimitiveListEntry)
+            {
+                ObfPrimitiveListEntry primitiveListEntry = (selectedObj as ObfPrimitiveListEntry);
+                glObjectName = primitiveListEntry.PrepareRender(glHelper);
+            }
 
             pnlRender.Invalidate();
 
@@ -222,32 +296,240 @@ namespace NisAnim
 
             if (loadedFile != null)
                 loadedFile.Dispose();
+
+            if (glHelper != null)
+                glHelper.Dispose();
         }
 
-        private void pnlRender_MouseMove(object sender, MouseEventArgs e)
+        private void glControl_MouseMove(object sender, MouseEventArgs e)
         {
-            if (mouseDown)
+            if (glHelper.ProjectionType == ProjectionType.Perspective)
             {
-                imageOffset.X += -(mouseCenter.X - e.X);
-                imageOffset.Y += -(mouseCenter.Y - e.Y);
-                mouseCenter = e.Location;
-                pnlRender.Invalidate();
+                if (Convert.ToBoolean(glHelper.Camera.MouseButtonsHeld & MouseButtons.Left))
+                    glHelper.Camera.MousePosition = e.Location;
+            }
+            else
+            {
+                if (mouseDown)
+                {
+                    imageOffset.X += -(mouseCenter.X - e.X);
+                    imageOffset.Y += -(mouseCenter.Y - e.Y);
+                    mouseCenter = e.Location;
+                }
             }
         }
 
-        private void pnlRender_MouseUp(object sender, MouseEventArgs e)
+        private void glControl_MouseUp(object sender, MouseEventArgs e)
         {
-            mouseDown = false;
-        }
-
-        private void pnlRender_MouseDown(object sender, MouseEventArgs e)
-        {
-            if (e.Button.HasFlag(MouseButtons.Left))
+            if (glHelper.ProjectionType == ProjectionType.Perspective)
             {
-                mouseDown = true;
-                mouseCenter = e.Location;
+                glHelper.Camera.MouseButtonsHeld &= ~e.Button;
+            }
+            else
+            {
+                mouseDown = false;
             }
         }
+
+        private void glControl_MouseDown(object sender, MouseEventArgs e)
+        {
+            if (glHelper.ProjectionType == ProjectionType.Perspective)
+            {
+                glHelper.Camera.MouseButtonsHeld |= e.Button;
+                if (Convert.ToBoolean(glHelper.Camera.MouseButtonsHeld & MouseButtons.Left)) glHelper.Camera.MousePosition = glHelper.Camera.MouseCenter = e.Location;
+            }
+            else
+            {
+                if (e.Button.HasFlag(MouseButtons.Left))
+                {
+                    mouseDown = true;
+                    mouseCenter = e.Location;
+                }
+            }
+        }
+
+        private void glControl_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (glHelper.ProjectionType == ProjectionType.Perspective)
+            {
+                glHelper.Camera.KeysHeld.Add(e.KeyCode);
+            }
+        }
+
+        private void glControl_KeyUp(object sender, KeyEventArgs e)
+        {
+            if (glHelper.ProjectionType == ProjectionType.Perspective)
+            {
+                glHelper.Camera.KeysHeld.Remove(e.KeyCode);
+            }
+        }
+
+        private void glControl_Leave(object sender, EventArgs e)
+        {
+            if (glHelper.ProjectionType == ProjectionType.Perspective)
+            {
+                glHelper.Camera.KeysHeld.Clear();
+            }
+        }
+
+        private void ClearObjects()
+        {
+            if (glObjectName == string.Empty) return;
+
+            glHelper.Buffers.RemoveVertices(glObjectName);
+            glHelper.Buffers.RemoveIndices(glObjectName);
+            glHelper.Textures.RemoveTexture(glObjectName);
+
+            glObjectName = string.Empty;
+        }
+
+        private void Render()
+        {
+            /* Activate default shader */
+            glHelper.Shaders.ActivateProgram(oglDefaultShaderName);
+
+            /* Set projection, modelview, etc. */
+            glHelper.ProjectionType = ProjectionType.Orthographic;
+            glHelper.ZNear = -10.0f;
+            glHelper.ZFar = 10.0f;
+            glHelper.Shaders.SetUniformMatrix(oglDefaultShaderName, "projectionMatrix", false, glHelper.CreateProjectionMatrix());
+            glHelper.Shaders.SetUniformMatrix(oglDefaultShaderName, "modelviewMatrix", false, Matrix4.CreateTranslation((glHelper.Viewport.Width / 2), (glHelper.Viewport.Height / 2), 0.0f));
+            glHelper.Shaders.SetUniformMatrix(oglDefaultShaderName, "objectMatrix", false, Matrix4.Identity);
+
+            /* Activate empty dummy texture */
+            glHelper.Textures.ActivateTexture(oglEmptyTexture, TextureUnit.Texture0);
+
+            /* Render marker */
+            glHelper.Buffers.Render(oglMarkerName);
+
+            if (selectedObj != null)
+            {
+                if (selectedObj is ObfPrimitiveListEntry)
+                {
+                    glHelper.Camera.Update();
+
+                    glHelper.ProjectionType = ProjectionType.Perspective;
+                    glHelper.ZNear = 0.001f;
+                    glHelper.ZFar = 1000.0f;
+
+                    glHelper.Shaders.SetUniformMatrix(oglDefaultShaderName, "projectionMatrix", false, glHelper.CreateProjectionMatrix());
+                    glHelper.Shaders.SetUniformMatrix(oglDefaultShaderName, "modelviewMatrix", false, Matrix4.Identity);
+                }
+                else
+                {
+                    glHelper.Shaders.SetUniformMatrix(oglDefaultShaderName, "modelviewMatrix", false, Matrix4.CreateTranslation(imageOffset.X + (glHelper.Viewport.Width / 2), imageOffset.Y + (glHelper.Viewport.Height / 2), 0.0f));
+                }
+
+                if (selectedObj is AnimationData)
+                {
+                    /* Render animation */
+                    AnimationData anim = (selectedObj as AnimationData);
+                    if (anim.FirstNode != null)
+                    {
+                        currentMatrix = Matrix4.Identity;
+                        RenderAnimationNode(anim.FirstNode);
+                    }
+                }
+                else if (selectedObj is AnimationFrameData)
+                {
+                    AnimationFrameData animFrame = (selectedObj as AnimationFrameData);
+                    currentMatrix = Matrix4.Identity;
+                    RenderAnimationFrame(animFrame, Vector2.Zero);
+                }
+                else if (selectedObj is ImageInformation || selectedObj is SpriteData || selectedObj is ObfPrimitiveListEntry)
+                {
+                    /* Activate object's texture */
+                    glHelper.Textures.ActivateTexture(glObjectName, TextureUnit.Texture0);
+
+                    /* Set matrices */
+                    Matrix4 translationMatrix = Matrix4.Identity;
+                    if (selectedObj is ImageInformation)
+                    {
+                        ImageInformation image = (selectedObj as ImageInformation);
+                        translationMatrix = Matrix4.CreateTranslation(-(image.Bitmap.Width / 2), -(image.Bitmap.Height / 2), 0.0f);
+                    }
+                    else if (selectedObj is SpriteData)
+                    {
+                        SpriteData sprite = (selectedObj as SpriteData);
+                        translationMatrix = Matrix4.CreateTranslation(-(sprite.Image.Width / 2), -(sprite.Image.Height / 2), 0.0f);
+                    }
+                    glHelper.Shaders.SetUniformMatrix(oglDefaultShaderName, "objectMatrix", false, translationMatrix);
+
+                    /* Render object */
+                    glHelper.Buffers.Render(glObjectName);
+                }
+            }
+        }
+
+        private void RenderAnimationNode(AnimationNodeData node)
+        {
+            Matrix4 lastMatrix = currentMatrix;
+
+            if (node.ChildNode != null)
+                RenderAnimationNode(node.ChildNode);
+
+            if (node.FirstAnimationFrameID != -1)
+            {
+                AnimationFrameData animFrame = node.AnimationFrames.LastOrDefault(x => animCounter >= x.FrameTime);
+
+                maxCounter = Math.Max(maxCounter, node.AnimationFrames.Max(x => x.FrameTime) * 3);
+
+                if (animFrame != null)
+                {
+                    Vector2 nodeOffset = Vector2.Zero;
+                    if ((node.Unknown0x06 & 0x01) == 0x01)
+                    {
+                        nodeOffset.X = animFrame.Transform.TransformOffset.Offset.X;
+                        nodeOffset.Y = animFrame.Transform.TransformOffset.Offset.Y;
+                    }
+                    else
+                    {
+                        nodeOffset.X = -animFrame.Transform.TransformOffset.Offset.X;
+                        nodeOffset.Y = -animFrame.Transform.TransformOffset.Offset.Y;
+                    }
+
+                    RenderAnimationFrame(animFrame, nodeOffset);
+                }
+            }
+
+            if (node.SiblingNode != null)
+                RenderAnimationNode(node.SiblingNode);
+
+            currentMatrix = lastMatrix;
+        }
+
+        private void RenderAnimationFrame(AnimationFrameData animFrame, Vector2 offset)
+        {
+            float scaleX = (animFrame.Transform.Scale.X / 100.0f);
+            float scaleY = (animFrame.Transform.Scale.Y / 100.0f);
+
+            if (scaleX == 0.0f || scaleY == 0.0f) return;
+
+            Matrix4 translationMatrix = Matrix4.CreateTranslation((animFrame.Transform.BaseOffset.X + offset.X), (animFrame.Transform.BaseOffset.Y + offset.Y), 0.0f);
+            Matrix4 rotationMatrix = Matrix4.CreateRotationZ(MathHelper.DegreesToRadians(animFrame.Transform.RotationAngle));
+            Matrix4 scaleMatrix = Matrix4.CreateScale(scaleX, scaleY, 1.0f);
+
+            currentMatrix = Matrix4.Mult(translationMatrix, currentMatrix);
+
+            if (animFrame.Unknown0x02 != 1)
+                currentMatrix = Matrix4.Mult(Matrix4.CreateTranslation((animFrame.Sprite.Rectangle.Width / 2), (animFrame.Sprite.Rectangle.Height / 2), 0.0f), currentMatrix);
+
+            currentMatrix = Matrix4.Mult(rotationMatrix, currentMatrix);
+            currentMatrix = Matrix4.Mult(scaleMatrix, currentMatrix);
+
+            if (animFrame.Unknown0x02 != 1)
+                currentMatrix = Matrix4.Mult(Matrix4.CreateTranslation(-(animFrame.Sprite.Rectangle.Width / 2), -(animFrame.Sprite.Rectangle.Height / 2), 0.0f), currentMatrix);
+
+            glHelper.Shaders.SetUniformMatrix(oglDefaultShaderName, "objectMatrix", false, currentMatrix);
+
+            string spriteName = animFrame.Sprite.PrepareRender(glHelper);
+            glHelper.Textures.ActivateTexture(spriteName, TextureUnit.Texture0);
+            glHelper.Buffers.Render(spriteName);
+        }
+
+
+
+
 
         private void pnlRender_Paint(object sender, PaintEventArgs e)
         {

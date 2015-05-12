@@ -8,7 +8,12 @@ using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
 using System.ComponentModel;
 
+using OpenTK;
+using OpenTK.Graphics;
+using OGL = OpenTK.Graphics.OpenGL;
+
 using NisAnim.IO;
+using NisAnim.OpenGL;
 
 namespace NisAnim.Conversion
 {
@@ -86,6 +91,24 @@ namespace NisAnim.Conversion
             PixelDataHeader = pixelDataHeader;
             PaletteDataHeader = paletteHeader;
             Bitmap = bitmap;
+        }
+
+        public string PrepareRender(GLHelper glHelper)
+        {
+            string objectName = string.Format("{0}_hash-{1}", this.GetType().Name, this.GetHashCode());
+
+            glHelper.Textures.AddTexture(objectName, Bitmap);
+            glHelper.Buffers.AddVertices(objectName, new GLVertex[]
+            {
+                new GLVertex(new Vector3(0.0f, 0.0f, 0.0f), Vector3.Zero, OpenTK.Graphics.Color4.White, new Vector2(0.0f, 0.0f)),
+                new GLVertex(new Vector3(0.0f, Bitmap.Height, 0.0f), Vector3.Zero, OpenTK.Graphics.Color4.White, new Vector2(0.0f, 1.0f)),
+                new GLVertex(new Vector3(Bitmap.Width, Bitmap.Height, 0.0f), Vector3.Zero, OpenTK.Graphics.Color4.White, new Vector2(1.0f, 1.0f)),
+                new GLVertex(new Vector3(Bitmap.Width, 0.0f, 0.0f), Vector3.Zero, OpenTK.Graphics.Color4.White, new Vector2(1.0f, 0.0f))
+            });
+
+            glHelper.Buffers.AddIndices(objectName, new uint[] { 0, 1, 2, 2, 3, 0 }, OGL.PrimitiveType.Triangles);
+
+            return objectName;
         }
     }
 

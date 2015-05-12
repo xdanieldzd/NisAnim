@@ -34,6 +34,14 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="OpenTK, Version=1.1.0.0, Culture=neutral, PublicKeyToken=bad199fe84eb3df4, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\..\..\VC# Libraries\OpenTK\1.1\Binaries\OpenTK\Release\OpenTK.dll</HintPath>
+    </Reference>
+    <Reference Include="OpenTK.GLControl, Version=1.1.0.0, Culture=neutral, PublicKeyToken=bad199fe84eb3df4, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\..\..\VC# Libraries\OpenTK\1.1\Binaries\OpenTK\Release\OpenTK.GLControl.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Xml.Linq" />
@@ -51,6 +59,10 @@
     <Compile Include="Conversion\NisPack.cs" />
     <Compile Include="Conversion\Obf.cs" />
     <Compile Include="Conversion\Txf.cs" />
+    <Compile Include="OpenGL\GLBufferManager.cs" />
+    <Compile Include="OpenGL\GLCamera.cs" />
+    <Compile Include="OpenGL\GLException.cs" />
+    <Compile Include="OpenGL\GLHelper.cs" />
     <Compile Include="IO\EndianBinaryReader.cs" />
     <Compile Include="IO\FileHelpers.cs" />
     <Compile Include="IO\LzsStream.cs" />
@@ -60,6 +72,8 @@
     <Compile Include="MainForm.Designer.cs">
       <DependentUpon>MainForm.cs</DependentUpon>
     </Compile>
+    <Compile Include="OpenGL\GLShaderManager.cs" />
+    <Compile Include="OpenGL\GLTextureManager.cs" />
     <Compile Include="PanelEx.cs">
       <SubType>Component</SubType>
     </Compile>
@@ -82,6 +96,12 @@
       <DesignTime>True</DesignTime>
     </Compile>
     <None Include="app.config" />
+    <None Include="Data\Default.frag">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="Data\Default.vert">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Include="Properties\Settings.settings">
       <Generator>SettingsSingleFileGenerator</Generator>
       <LastGenOutput>Settings.Designer.cs</LastGenOutput>
@@ -91,6 +111,9 @@
       <DependentUpon>Settings.settings</DependentUpon>
       <DesignTimeSharedInput>True</DesignTimeSharedInput>
     </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Empty.png" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
