@@ -27,7 +27,7 @@ namespace NisAnim
 
         GLHelper glHelper;
         Matrix4 currentMatrix;
-        string glObjectName;
+        List<string> glObjectNames;
 
         BaseFile loadedFile;
         object selectedObj { get { return pgObject.SelectedObject; } }
@@ -66,7 +66,7 @@ namespace NisAnim
             });
 
             currentMatrix = Matrix4.Identity;
-            glObjectName = string.Empty;
+            glObjectNames = new List<string>();
 
             SetFormTitle();
 
@@ -158,6 +158,7 @@ namespace NisAnim
                     if ((bool)ev.Result == false)
                     {
                         tsslStatus.Text = "Ready";
+                        tvObject.Enabled = true;
                         return;
                     }
 
@@ -257,13 +258,36 @@ namespace NisAnim
                     }
                 }
             }
+            else if (selectedObj is PacFile)
+            {
+                PacFile file = (selectedObj as PacFile);
+
+                e.Node.ContextMenuStrip = cmsTreeNode;
+                sfdDataFile.Filter = "All Files (*.*)|*.*";
+                sfdDataFile.FileName = file.Filename;
+
+                if (e.Node.Nodes.Count == 0)
+                {
+                    if (file.DetectedFileType != null)
+                    {
+                        string path = Path.Combine(Path.GetTempPath(), Path.GetFileNameWithoutExtension(Path.GetRandomFileName()) + "_" + file.Filename);
+
+                        file.ParentFile.ExtractFile(file, path);
+                        object tempObject = (BaseFile)Activator.CreateInstance(file.DetectedFileType, new object[] { path });
+                        e.Node.Nodes.Add(FileHelpers.TraverseObject(e.Node, file.Filename, tempObject, true));
+
+                        if (File.Exists(path))
+                            File.Delete(path);
+                    }
+                }
+            }
             else if (selectedObj is ImageInformation)
             {
                 e.Node.ContextMenuStrip = cmsTreeNode;
                 sfdDataFile.Filter = "Image Files (*.png)|*.png|All Files (*.*)|*.*";
 
                 ImageInformation image = (selectedObj as ImageInformation);
-                glObjectName = image.PrepareRender(glHelper);
+                glObjectNames.Add(image.PrepareRender(glHelper));
             }
             else if (selectedObj is SpriteData)
             {
@@ -271,12 +295,17 @@ namespace NisAnim
                 sfdDataFile.Filter = "Image Files (*.png)|*.png|All Files (*.*)|*.*";
 
                 SpriteData sprite = (selectedObj as SpriteData);
-                glObjectName = sprite.PrepareRender(glHelper);
+                glObjectNames.Add(sprite.PrepareRender(glHelper));
             }
             else if (selectedObj is ObfPrimitiveListEntry)
             {
                 ObfPrimitiveListEntry primitiveListEntry = (selectedObj as ObfPrimitiveListEntry);
-                glObjectName = primitiveListEntry.PrepareRender(glHelper);
+                glObjectNames.Add(primitiveListEntry.PrepareRender(glHelper));
+            }
+            else if (selectedObj is ObfObjectListEntry)
+            {
+                ObfObjectListEntry objectListEntry = (selectedObj as ObfObjectListEntry);
+                glObjectNames.AddRange(objectListEntry.PrepareRender(glHelper));
             }
 
             pnlRender.Invalidate();
@@ -374,13 +403,16 @@ namespace NisAnim
 
         private void ClearObjects()
         {
-            if (glObjectName == string.Empty) return;
+            if (glObjectNames.Count == 0) return;
 
-            glHelper.Buffers.RemoveVertices(glObjectName);
-            glHelper.Buffers.RemoveIndices(glObjectName);
-            glHelper.Textures.RemoveTexture(glObjectName);
+            foreach (string glObjectName in glObjectNames)
+            {
+                glHelper.Buffers.RemoveVertices(glObjectName);
+                glHelper.Buffers.RemoveIndices(glObjectName);
+                glHelper.Textures.RemoveTexture(glObjectName);
+            }
 
-            glObjectName = string.Empty;
+            glObjectNames.Clear();
         }
 
         private void Render()
@@ -395,6 +427,7 @@ namespace NisAnim
             glHelper.Shaders.SetUniformMatrix(oglDefaultShaderName, "projectionMatrix", false, glHelper.CreateProjectionMatrix());
             glHelper.Shaders.SetUniformMatrix(oglDefaultShaderName, "modelviewMatrix", false, Matrix4.CreateTranslation((glHelper.Viewport.Width / 2), (glHelper.Viewport.Height / 2), 0.0f));
             glHelper.Shaders.SetUniformMatrix(oglDefaultShaderName, "objectMatrix", false, Matrix4.Identity);
+            glHelper.Shaders.SetUniform(oglDefaultShaderName, "enableLight", 0);
 
             /* Activate empty dummy texture */
             glHelper.Textures.ActivateTexture(oglEmptyTexture, TextureUnit.Texture0);
@@ -404,13 +437,17 @@ namespace NisAnim
 
             if (selectedObj != null)
             {
-                if (selectedObj is ObfPrimitiveListEntry)
+                if (selectedObj is ObfPrimitiveListEntry || selectedObj is ObfObjectListEntry)
                 {
                     glHelper.Camera.Update();
 
                     glHelper.ProjectionType = ProjectionType.Perspective;
-                    glHelper.ZNear = 0.001f;
+                    glHelper.ZNear = 0.01f;
                     glHelper.ZFar = 1000.0f;
+
+                    glHelper.Shaders.SetUniform(oglDefaultShaderName, "enableLight", 1);
+                    glHelper.Shaders.SetUniform(oglDefaultShaderName, "lightPosition", glHelper.Camera.Position);
+                    glHelper.Shaders.SetUniform(oglDefaultShaderName, "lightIntensities", new Vector3(1.0f, 1.0f, 1.0f));
 
                     glHelper.Shaders.SetUniformMatrix(oglDefaultShaderName, "projectionMatrix", false, glHelper.CreateProjectionMatrix());
                     glHelper.Shaders.SetUniformMatrix(oglDefaultShaderName, "modelviewMatrix", false, Matrix4.Identity);
@@ -436,27 +473,30 @@ namespace NisAnim
                     currentMatrix = Matrix4.Identity;
                     RenderAnimationFrame(animFrame, Vector2.Zero);
                 }
-                else if (selectedObj is ImageInformation || selectedObj is SpriteData || selectedObj is ObfPrimitiveListEntry)
+                else if (selectedObj is ImageInformation || selectedObj is SpriteData || selectedObj is ObfPrimitiveListEntry || selectedObj is ObfObjectListEntry)
                 {
-                    /* Activate object's texture */
-                    glHelper.Textures.ActivateTexture(glObjectName, TextureUnit.Texture0);
-
-                    /* Set matrices */
-                    Matrix4 translationMatrix = Matrix4.Identity;
-                    if (selectedObj is ImageInformation)
+                    foreach (string glObjectName in glObjectNames)
                     {
-                        ImageInformation image = (selectedObj as ImageInformation);
-                        translationMatrix = Matrix4.CreateTranslation(-(image.Bitmap.Width / 2), -(image.Bitmap.Height / 2), 0.0f);
-                    }
-                    else if (selectedObj is SpriteData)
-                    {
-                        SpriteData sprite = (selectedObj as SpriteData);
-                        translationMatrix = Matrix4.CreateTranslation(-(sprite.Image.Width / 2), -(sprite.Image.Height / 2), 0.0f);
-                    }
-                    glHelper.Shaders.SetUniformMatrix(oglDefaultShaderName, "objectMatrix", false, translationMatrix);
+                        /* Activate object's texture */
+                        glHelper.Textures.ActivateTexture(glObjectName, TextureUnit.Texture0);
 
-                    /* Render object */
-                    glHelper.Buffers.Render(glObjectName);
+                        /* Set matrices */
+                        Matrix4 translationMatrix = Matrix4.Identity;
+                        if (selectedObj is ImageInformation)
+                        {
+                            ImageInformation image = (selectedObj as ImageInformation);
+                            translationMatrix = Matrix4.CreateTranslation(-(image.Bitmap.Width / 2), -(image.Bitmap.Height / 2), 0.0f);
+                        }
+                        else if (selectedObj is SpriteData)
+                        {
+                            SpriteData sprite = (selectedObj as SpriteData);
+                            translationMatrix = Matrix4.CreateTranslation(-(sprite.Image.Width / 2), -(sprite.Image.Height / 2), 0.0f);
+                        }
+                        glHelper.Shaders.SetUniformMatrix(oglDefaultShaderName, "objectMatrix", false, translationMatrix);
+
+                        /* Render object */
+                        glHelper.Buffers.Render(glObjectName);
+                    }
                 }
             }
         }

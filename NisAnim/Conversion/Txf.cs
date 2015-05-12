@@ -286,7 +286,7 @@ namespace NisAnim.Conversion
                 case TxfDataFormat.Argb4444:
                     {
                         pixelFormat = PixelFormat.Format32bppArgb;
-                        byte[] tempData = GetPixelData(reader, pixelDataHeader.Format, pixelDataHeader.Offset);
+                        byte[] tempData = GetPixelData(reader, pixelDataHeader.Format, CalculatePixelDataSize(pixelDataHeader.Format, pixelDataHeader.Width, pixelDataHeader.Height));
                         pixelData = new byte[tempData.Length << 1];
                         for (int i = 0, j = 0; i < tempData.Length; i += 2, j += 4)
                         {
@@ -575,12 +575,12 @@ namespace NisAnim.Conversion
                     {
                         byte alpha0 = reader.ReadByte();
                         byte alpha1 = reader.ReadByte();
-                        byte bits_0 = reader.ReadByte();
-                        byte bits_1 = reader.ReadByte();
-                        byte bits_2 = reader.ReadByte();
-                        byte bits_3 = reader.ReadByte();
-                        byte bits_4 = reader.ReadByte();
                         byte bits_5 = reader.ReadByte();
+                        byte bits_4 = reader.ReadByte();
+                        byte bits_3 = reader.ReadByte();
+                        byte bits_2 = reader.ReadByte();
+                        byte bits_1 = reader.ReadByte();
+                        byte bits_0 = reader.ReadByte();
 
                         ulong bits = (ulong)(((ulong)bits_0 << 40) | ((ulong)bits_1 << 32) | ((ulong)bits_2 << 24) | ((ulong)bits_3 << 16) | ((ulong)bits_4 << 8) | (ulong)bits_5);
 

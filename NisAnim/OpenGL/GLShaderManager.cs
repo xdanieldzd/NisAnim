@@ -255,7 +255,7 @@ namespace NisAnim.OpenGL
             int program = GetProgram(programName, MethodBase.GetCurrentMethod().ToString());
             int location = GL.GetUniformLocation(program, uniformName);
 
-            if (location == -1) throw new GLException(string.Format("{0}: Cannot get location for '{1}'; uniform not found", MethodBase.GetCurrentMethod(), programName));
+            if (location == -1) throw new GLException(string.Format("{0}: Cannot get location for '{1}'; uniform not found", MethodBase.GetCurrentMethod(), uniformName));
 
             foreach (string methodName in uniformSetMethods)
             {

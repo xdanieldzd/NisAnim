@@ -8,13 +8,17 @@ layout(location = 3) in vec2 vertexTextureCoord;
 uniform mat4 projectionMatrix, modelviewMatrix;
 uniform mat4 objectMatrix;
 
+out vec3 fragmentPosition;
+out vec3 fragmentNormal;
 out vec4 fragmentColor;
 out vec2 fragmentTextureCoord;
 
 void main()
 {
-	fragmentTextureCoord = vertexTextureCoord;
+	fragmentPosition = vertexPosition;
+	fragmentNormal = vertexNormal;
 	fragmentColor = vertexColor;
-
+	fragmentTextureCoord = vertexTextureCoord;
+	
 	gl_Position = (projectionMatrix * (modelviewMatrix * objectMatrix)) * vec4(vertexPosition, 1.0);
 }
