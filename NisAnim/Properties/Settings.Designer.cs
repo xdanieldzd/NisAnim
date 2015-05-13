@@ -46,5 +46,17 @@ namespace NisAnim.Properties {
                 this["DebugDraw"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("True")]
+        public bool EnableLighting {
+            get {
+                return ((bool)(this["EnableLighting"]));
+            }
+            set {
+                this["EnableLighting"] = value;
+            }
+        }
     }
 }

@@ -115,9 +115,6 @@ namespace NisAnim.OpenGL
 
         private void SetDefaults()
         {
-            /* TODO actually slim down to only what's needed? been carrying all of these around since SceneNavi, I think... */
-
-            GL.ShadeModel(ShadingModel.Smooth);
             GL.Enable(EnableCap.PointSmooth);
             GL.Hint(HintTarget.PointSmoothHint, HintMode.Nicest);
 
@@ -130,18 +127,6 @@ namespace NisAnim.OpenGL
             GL.DepthMask(true);
 
             GL.Hint(HintTarget.PerspectiveCorrectionHint, HintMode.Nicest);
-
-            /*GL.Light(LightName.Light0, LightParameter.Ambient, new float[] { 1.0f, 1.0f, 1.0f, 1.0f });
-            GL.Light(LightName.Light0, LightParameter.Diffuse, new float[] { 1.0f, 1.0f, 1.0f, 1.0f });
-            GL.Light(LightName.Light0, LightParameter.Specular, new float[] { 1.0f, 1.0f, 1.0f, 1.0f });
-            GL.Light(LightName.Light0, LightParameter.Position, new float[] { 1.0f, 1.0f, 1.0f, 1.0f });
-            GL.Enable(EnableCap.Light0);
-            
-            GL.Enable(EnableCap.Lighting);
-            GL.Enable(EnableCap.Normalize);
-            */
-            //GL.Enable(EnableCap.CullFace);
-            //GL.CullFace(CullFaceMode.Back);
 
             GL.Enable(EnableCap.Blend);
             GL.BlendFunc(BlendingFactorSrc.SrcAlpha, BlendingFactorDest.OneMinusSrcAlpha);

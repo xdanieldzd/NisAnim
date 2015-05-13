@@ -48,7 +48,7 @@
             this.saveToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.sfdDataFile = new System.Windows.Forms.SaveFileDialog();
             this.glControl = new OpenTK.GLControl();
-            this.pnlRender = new NisAnim.PanelEx();
+            this.enableLightingToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.tvObject = new NisAnim.TreeViewEx();
             this.msMainMenu.SuspendLayout();
             this.ssMainStatus.SuspendLayout();
@@ -107,6 +107,7 @@
             // optionsToolStripMenuItem
             // 
             this.optionsToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.enableLightingToolStripMenuItem,
             this.debugDrawToolStripMenuItem,
             this.toolStripMenuItem2,
             this.resetTranslationToolStripMenuItem});
@@ -189,7 +190,7 @@
             this.glControl.Dock = System.Windows.Forms.DockStyle.Fill;
             this.glControl.Location = new System.Drawing.Point(275, 24);
             this.glControl.Name = "glControl";
-            this.glControl.Size = new System.Drawing.Size(348, 636);
+            this.glControl.Size = new System.Drawing.Size(714, 636);
             this.glControl.TabIndex = 0;
             this.glControl.VSync = false;
             this.glControl.KeyDown += new System.Windows.Forms.KeyEventHandler(this.glControl_KeyDown);
@@ -199,15 +200,13 @@
             this.glControl.MouseMove += new System.Windows.Forms.MouseEventHandler(this.glControl_MouseMove);
             this.glControl.MouseUp += new System.Windows.Forms.MouseEventHandler(this.glControl_MouseUp);
             // 
-            // pnlRender
+            // enableLightingToolStripMenuItem
             // 
-            this.pnlRender.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.pnlRender.Dock = System.Windows.Forms.DockStyle.Right;
-            this.pnlRender.Location = new System.Drawing.Point(623, 24);
-            this.pnlRender.Name = "pnlRender";
-            this.pnlRender.Size = new System.Drawing.Size(366, 636);
-            this.pnlRender.TabIndex = 1;
-            this.pnlRender.Paint += new System.Windows.Forms.PaintEventHandler(this.pnlRender_Paint);
+            this.enableLightingToolStripMenuItem.CheckOnClick = true;
+            this.enableLightingToolStripMenuItem.Name = "enableLightingToolStripMenuItem";
+            this.enableLightingToolStripMenuItem.Size = new System.Drawing.Size(164, 22);
+            this.enableLightingToolStripMenuItem.Text = "&Enable Lighting";
+            this.enableLightingToolStripMenuItem.Click += new System.EventHandler(this.enableLightingToolStripMenuItem_Click);
             // 
             // tvObject
             // 
@@ -225,7 +224,6 @@
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(1264, 682);
             this.Controls.Add(this.glControl);
-            this.Controls.Add(this.pnlRender);
             this.Controls.Add(this.pgObject);
             this.Controls.Add(this.tvObject);
             this.Controls.Add(this.ssMainStatus);
@@ -236,7 +234,6 @@
             this.Activated += new System.EventHandler(this.MainForm_Activated);
             this.Deactivate += new System.EventHandler(this.MainForm_Deactivate);
             this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.MainForm_FormClosing);
-            this.Resize += new System.EventHandler(this.MainForm_Resize);
             this.msMainMenu.ResumeLayout(false);
             this.msMainMenu.PerformLayout();
             this.ssMainStatus.ResumeLayout(false);
@@ -257,7 +254,6 @@
         private System.Windows.Forms.ToolStripSeparator toolStripMenuItem1;
         private System.Windows.Forms.ToolStripMenuItem exitToolStripMenuItem;
         private System.Windows.Forms.OpenFileDialog ofdDataFile;
-        private PanelEx pnlRender;
         private System.Windows.Forms.ToolStripMenuItem optionsToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem debugDrawToolStripMenuItem;
         private System.Windows.Forms.ToolStripSeparator toolStripMenuItem2;
@@ -270,6 +266,7 @@
         private System.Windows.Forms.ToolStripMenuItem saveToolStripMenuItem;
         private System.Windows.Forms.SaveFileDialog sfdDataFile;
         private OpenTK.GLControl glControl;
+        private System.Windows.Forms.ToolStripMenuItem enableLightingToolStripMenuItem;
     }
 }
 

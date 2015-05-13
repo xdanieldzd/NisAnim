@@ -6,19 +6,17 @@ layout(location = 2) in vec4 vertexColor;
 layout(location = 3) in vec2 vertexTextureCoord;
 
 uniform mat4 projectionMatrix, modelviewMatrix;
-uniform mat4 objectMatrix;
+uniform mat4 objectMatrix, baseMatrix;
 
-out vec3 fragmentPosition;
-out vec3 fragmentNormal;
-out vec4 fragmentColor;
-out vec2 fragmentTextureCoord;
+uniform vec4 surfaceColor;
+
+out vec4 vert_surfaceColor;
+out vec4 vert_basePosition;
 
 void main()
 {
-	fragmentPosition = vertexPosition;
-	fragmentNormal = vertexNormal;
-	fragmentColor = vertexColor;
-	fragmentTextureCoord = vertexTextureCoord;
-
+	vert_surfaceColor = surfaceColor;
+	vert_basePosition = (projectionMatrix * (modelviewMatrix * baseMatrix)) * vec4(vertexPosition, 1.0);
+	
 	gl_Position = (projectionMatrix * (modelviewMatrix * objectMatrix)) * vec4(vertexPosition, 1.0);
 }

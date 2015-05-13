@@ -9,6 +9,7 @@ using System.Windows.Forms;
 using System.Drawing.Drawing2D;
 using System.Reflection;
 using System.IO;
+using System.Diagnostics;
 
 using OpenTK;
 using OpenTK.Graphics.OpenGL;
@@ -21,19 +22,32 @@ namespace NisAnim
 {
     public partial class MainForm : Form
     {
-        const string oglMarkerName = "marker";
-        const string oglEmptyTexture = "empty";
-        const string oglDefaultShaderName = "default";
+        const string oglAxisMarkerObjectName = "axisMarkerObj";
+        const string oglLightMarkerObjectName = "lightMarkerObj";
+
+        const string oglEmptyTextureName = "emptyTex";
+
+        const string oglDefaultShaderName = "defaultShader";
+        const string oglLightMarkerShaderName = "lightMarkerShader";
+        const string oglLightLineShaderName = "lightLineShader";
+
+        const float lightStep = 5.0f;
 
         GLHelper glHelper;
+        bool render3D;
+        Stopwatch stopWatch;
+
         Matrix4 currentMatrix;
         List<string> glObjectNames;
+
+        Vector3 lightPosition;
+        float lightRotation;
 
         BaseFile loadedFile;
         object selectedObj { get { return pgObject.SelectedObject; } }
 
         bool mouseDown;
-        Point mouseCenter, imageOffset;
+        Vector2 mouseCenter, imageOffset;
 
         Timer timer;
         int animCounter, maxCounter;
@@ -49,59 +63,87 @@ namespace NisAnim
             });
             glControl.Load += ((s, e) =>
             {
-                glHelper.Textures.AddTexture(oglEmptyTexture, Properties.Resources.Empty);
+                glHelper.Textures.AddTexture(oglEmptyTextureName, Properties.Resources.Empty);
                 glHelper.Shaders.AddProgramWithShaders(oglDefaultShaderName,
                     File.ReadAllText("Data\\Default.vert"),
                     File.ReadAllText("Data\\Default.frag"));
 
-                glHelper.Buffers.AddVertices(oglMarkerName, new GLVertex[]
+                glHelper.Shaders.AddProgramWithShaders(oglLightMarkerShaderName,
+                    File.ReadAllText("Data\\LightMarker.vert"),
+                    File.ReadAllText("Data\\LightMarker.frag"),
+                    File.ReadAllText("Data\\LightMarker.geom"));
+
+                glHelper.Shaders.AddProgramWithShaders(oglLightLineShaderName,
+                    File.ReadAllText("Data\\LightMarker.vert"),
+                    File.ReadAllText("Data\\LightMarker.frag"),
+                    File.ReadAllText("Data\\LightLine.geom"));
+
+                glHelper.Buffers.AddVertices(oglAxisMarkerObjectName, new GLVertex[]
                 {
                     new GLVertex(new Vector3(-300.0f, 0.0f, 0.0f), Vector3.Zero, OpenTK.Graphics.Color4.Black, Vector2.Zero),
                     new GLVertex(new Vector3(300.0f, 0.0f, 0.0f), Vector3.Zero, OpenTK.Graphics.Color4.Black, Vector2.Zero),
                     new GLVertex(new Vector3(0.0f, 300.0f, 0.0f), Vector3.Zero, OpenTK.Graphics.Color4.Black, Vector2.Zero),
                     new GLVertex(new Vector3(0.0f, -300.0f, 0.0f), Vector3.Zero, OpenTK.Graphics.Color4.Black, Vector2.Zero)
                 });
+                glHelper.Buffers.AddIndices(oglAxisMarkerObjectName, new uint[] { 0, 1, 2, 3 }, PrimitiveType.Lines);
 
-                glHelper.Buffers.AddIndices(oglMarkerName, new uint[] { 0, 1, 2, 3 }, PrimitiveType.Lines);
+                glHelper.Buffers.AddVertices(oglLightMarkerObjectName, new GLVertex[]
+                {
+                    new GLVertex(Vector3.Zero, Vector3.Zero, OpenTK.Graphics.Color4.White, Vector2.Zero)
+                });
+                glHelper.Buffers.AddIndices(oglLightMarkerObjectName, new uint[] { 0 }, PrimitiveType.Points);
             });
+
+            render3D = false;
+            stopWatch = new Stopwatch();
 
             currentMatrix = Matrix4.Identity;
             glObjectNames = new List<string>();
 
+            lightPosition = new Vector3(0.0f, 20.0f, 0.0f);
+            lightRotation = 0.0f;
+
             SetFormTitle();
 
             debugDrawToolStripMenuItem.Checked = Properties.Settings.Default.DebugDraw;
+            enableLightingToolStripMenuItem.Checked = Properties.Settings.Default.EnableLighting;
 
-            mouseCenter = imageOffset = Point.Empty;
+            mouseCenter = imageOffset = Vector2.Zero;
 
             animCounter = 0;
             maxCounter = 0;
 
+            /* TODO uh, make better */
             timer = new Timer();
             timer.Interval = 15;
             timer.Tick += ((s, e) =>
             {
                 animCounter++;
                 if (animCounter >= maxCounter) animCounter = 0;
-
-                pnlRender.Invalidate();
             });
 
             timer.Start();
 
             Application.Idle += ((s, e) =>
             {
+                stopWatch.Start();
+
                 if (glControl.IsIdle)
                     glControl.Invalidate();
+
+                stopWatch.Stop();
+
+                double milliseconds = stopWatch.Elapsed.TotalMilliseconds;
+                stopWatch.Reset();
+
+                if (Properties.Settings.Default.EnableLighting)
+                {
+                    lightRotation += (float)milliseconds / 10.0f;
+                    if (lightRotation >= 360.0f) lightRotation = 0.0f;
+                }
             });
 
             tsslStatus.Text = "Ready";
-
-            // TEMP TEMP TEMP
-            // TEMP TEMP TEMP
-            pnlRender.Visible = false;
-            // TEMP TEMP TEMP
-            // TEMP TEMP TEMP
         }
 
         private void SetFormTitle()
@@ -126,7 +168,6 @@ namespace NisAnim
             {
                 tvObject.Enabled = false;
                 pgObject.SelectedObject = null;
-                pnlRender.Invalidate();
 
                 ClearObjects();
 
@@ -192,6 +233,11 @@ namespace NisAnim
             Application.Exit();
         }
 
+        private void enableLightingToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            Properties.Settings.Default.EnableLighting = (sender as ToolStripMenuItem).Checked;
+        }
+
         private void debugDrawToolStripMenuItem_Click(object sender, EventArgs e)
         {
             Properties.Settings.Default.DebugDraw = (sender as ToolStripMenuItem).Checked;
@@ -199,7 +245,7 @@ namespace NisAnim
 
         private void resetTranslationToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            imageOffset = Point.Empty;
+            imageOffset = Vector2.Zero;
         }
 
         private void aboutToolStripMenuItem_Click(object sender, EventArgs e)
@@ -288,6 +334,8 @@ namespace NisAnim
 
                 ImageInformation image = (selectedObj as ImageInformation);
                 glObjectNames.Add(image.PrepareRender(glHelper));
+
+                render3D = false;
             }
             else if (selectedObj is SpriteData)
             {
@@ -296,27 +344,26 @@ namespace NisAnim
 
                 SpriteData sprite = (selectedObj as SpriteData);
                 glObjectNames.Add(sprite.PrepareRender(glHelper));
+
+                render3D = false;
             }
             else if (selectedObj is ObfPrimitiveListEntry)
             {
                 ObfPrimitiveListEntry primitiveListEntry = (selectedObj as ObfPrimitiveListEntry);
                 glObjectNames.Add(primitiveListEntry.PrepareRender(glHelper));
+
+                render3D = true;
             }
             else if (selectedObj is ObfObjectListEntry)
             {
                 ObfObjectListEntry objectListEntry = (selectedObj as ObfObjectListEntry);
                 glObjectNames.AddRange(objectListEntry.PrepareRender(glHelper));
-            }
 
-            pnlRender.Invalidate();
+                render3D = true;
+            }
 
             animCounter = 0;
             maxCounter = 0;
-        }
-
-        private void MainForm_Resize(object sender, EventArgs e)
-        {
-            pnlRender.Invalidate();
         }
 
         private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
@@ -343,7 +390,7 @@ namespace NisAnim
                 {
                     imageOffset.X += -(mouseCenter.X - e.X);
                     imageOffset.Y += -(mouseCenter.Y - e.Y);
-                    mouseCenter = e.Location;
+                    mouseCenter = new Vector2(e.Location.X, e.Location.Y);
                 }
             }
         }
@@ -372,7 +419,7 @@ namespace NisAnim
                 if (e.Button.HasFlag(MouseButtons.Left))
                 {
                     mouseDown = true;
-                    mouseCenter = e.Location;
+                    mouseCenter = new Vector2(e.Location.X, e.Location.Y);
                 }
             }
         }
@@ -382,6 +429,16 @@ namespace NisAnim
             if (glHelper.ProjectionType == ProjectionType.Perspective)
             {
                 glHelper.Camera.KeysHeld.Add(e.KeyCode);
+
+                switch (e.KeyCode)
+                {
+                    case Keys.NumPad8: lightPosition.Z -= lightStep; break;
+                    case Keys.NumPad2: lightPosition.Z += lightStep; break;
+                    case Keys.NumPad4: lightPosition.X -= lightStep; break;
+                    case Keys.NumPad6: lightPosition.X += lightStep; break;
+                    case Keys.NumPad7: lightPosition.Y += lightStep; break;
+                    case Keys.NumPad9: lightPosition.Y -= lightStep; break;
+                }
             }
         }
 
@@ -417,85 +474,139 @@ namespace NisAnim
 
         private void Render()
         {
-            /* Activate default shader */
-            glHelper.Shaders.ActivateProgram(oglDefaultShaderName);
-
-            /* Set projection, modelview, etc. */
-            glHelper.ProjectionType = ProjectionType.Orthographic;
-            glHelper.ZNear = -10.0f;
-            glHelper.ZFar = 10.0f;
-            glHelper.Shaders.SetUniformMatrix(oglDefaultShaderName, "projectionMatrix", false, glHelper.CreateProjectionMatrix());
-            glHelper.Shaders.SetUniformMatrix(oglDefaultShaderName, "modelviewMatrix", false, Matrix4.CreateTranslation((glHelper.Viewport.Width / 2), (glHelper.Viewport.Height / 2), 0.0f));
-            glHelper.Shaders.SetUniformMatrix(oglDefaultShaderName, "objectMatrix", false, Matrix4.Identity);
-            glHelper.Shaders.SetUniform(oglDefaultShaderName, "enableLight", 0);
-
-            /* Activate empty dummy texture */
-            glHelper.Textures.ActivateTexture(oglEmptyTexture, TextureUnit.Texture0);
-
-            /* Render marker */
-            glHelper.Buffers.Render(oglMarkerName);
-
-            if (selectedObj != null)
+            if (render3D)
             {
-                if (selectedObj is ObfPrimitiveListEntry || selectedObj is ObfObjectListEntry)
+                if (selectedObj != null)
                 {
                     glHelper.Camera.Update();
 
+                    Matrix4 lightMatrix = Matrix4.Mult(Matrix4.CreateRotationY(lightRotation), Matrix4.CreateTranslation(lightPosition));
+                    Vector3 rotatedLightPosition = Vector3.Transform(new Vector3(30.0f, 0.0f, 0.0f), lightMatrix);
+
+                    /* Set projection, modelview */
                     glHelper.ProjectionType = ProjectionType.Perspective;
                     glHelper.ZNear = 0.01f;
                     glHelper.ZFar = 1000.0f;
 
-                    glHelper.Shaders.SetUniform(oglDefaultShaderName, "enableLight", 1);
-                    glHelper.Shaders.SetUniform(oglDefaultShaderName, "lightPosition", glHelper.Camera.Position);
-                    glHelper.Shaders.SetUniform(oglDefaultShaderName, "lightIntensities", new Vector3(1.0f, 1.0f, 1.0f));
-
+                    /* Activate default shader */
+                    glHelper.Shaders.ActivateProgram(oglDefaultShaderName);
+                    /* Set shader uniforms */
                     glHelper.Shaders.SetUniformMatrix(oglDefaultShaderName, "projectionMatrix", false, glHelper.CreateProjectionMatrix());
                     glHelper.Shaders.SetUniformMatrix(oglDefaultShaderName, "modelviewMatrix", false, Matrix4.Identity);
-                }
-                else
-                {
-                    glHelper.Shaders.SetUniformMatrix(oglDefaultShaderName, "modelviewMatrix", false, Matrix4.CreateTranslation(imageOffset.X + (glHelper.Viewport.Width / 2), imageOffset.Y + (glHelper.Viewport.Height / 2), 0.0f));
-                }
+                    glHelper.Shaders.SetUniformMatrix(oglDefaultShaderName, "objectMatrix", false, Matrix4.Identity);
+                    glHelper.Shaders.SetUniform(oglDefaultShaderName, "enableLight", Convert.ToInt32(Properties.Settings.Default.EnableLighting));
+                    glHelper.Shaders.SetUniform(oglDefaultShaderName, "lightPosition", rotatedLightPosition);
 
-                if (selectedObj is AnimationData)
-                {
-                    /* Render animation */
-                    AnimationData anim = (selectedObj as AnimationData);
-                    if (anim.FirstNode != null)
-                    {
-                        currentMatrix = Matrix4.Identity;
-                        RenderAnimationNode(anim.FirstNode);
-                    }
-                }
-                else if (selectedObj is AnimationFrameData)
-                {
-                    AnimationFrameData animFrame = (selectedObj as AnimationFrameData);
-                    currentMatrix = Matrix4.Identity;
-                    RenderAnimationFrame(animFrame, Vector2.Zero);
-                }
-                else if (selectedObj is ImageInformation || selectedObj is SpriteData || selectedObj is ObfPrimitiveListEntry || selectedObj is ObfObjectListEntry)
-                {
+                    /* Render each known object */
                     foreach (string glObjectName in glObjectNames)
                     {
                         /* Activate object's texture */
                         glHelper.Textures.ActivateTexture(glObjectName, TextureUnit.Texture0);
 
-                        /* Set matrices */
-                        Matrix4 translationMatrix = Matrix4.Identity;
-                        if (selectedObj is ImageInformation)
-                        {
-                            ImageInformation image = (selectedObj as ImageInformation);
-                            translationMatrix = Matrix4.CreateTranslation(-(image.Bitmap.Width / 2), -(image.Bitmap.Height / 2), 0.0f);
-                        }
-                        else if (selectedObj is SpriteData)
-                        {
-                            SpriteData sprite = (selectedObj as SpriteData);
-                            translationMatrix = Matrix4.CreateTranslation(-(sprite.Image.Width / 2), -(sprite.Image.Height / 2), 0.0f);
-                        }
-                        glHelper.Shaders.SetUniformMatrix(oglDefaultShaderName, "objectMatrix", false, translationMatrix);
-
-                        /* Render object */
+                        /* Render */
                         glHelper.Buffers.Render(glObjectName);
+                    }
+
+                    if (Properties.Settings.Default.EnableLighting)
+                    {
+                        /* Render light marker line */
+                        glHelper.Shaders.ActivateProgram(oglLightLineShaderName);
+                        glHelper.Shaders.SetUniformMatrix(oglLightLineShaderName, "projectionMatrix", false, glHelper.CreateProjectionMatrix());
+                        glHelper.Shaders.SetUniformMatrix(oglLightLineShaderName, "modelviewMatrix", false, Matrix4.Identity);
+                        glHelper.Shaders.SetUniformMatrix(oglLightLineShaderName, "objectMatrix", false, Matrix4.CreateTranslation(rotatedLightPosition));
+                        glHelper.Shaders.SetUniformMatrix(oglLightLineShaderName, "baseMatrix", false, Matrix4.CreateTranslation(lightPosition));
+                        glHelper.Shaders.SetUniform(oglLightLineShaderName, "surfaceColor", new OpenTK.Graphics.Color4(0.0f, 0.0f, 0.0f, 0.5f));
+                        glHelper.Buffers.Render(oglLightMarkerObjectName);
+
+                        /* Render light marker */
+                        glHelper.Shaders.ActivateProgram(oglLightMarkerShaderName);
+                        glHelper.Shaders.SetUniformMatrix(oglLightMarkerShaderName, "projectionMatrix", false, glHelper.CreateProjectionMatrix());
+                        glHelper.Shaders.SetUniformMatrix(oglLightMarkerShaderName, "modelviewMatrix", false, Matrix4.Identity);
+                        glHelper.Shaders.SetUniformMatrix(oglLightMarkerShaderName, "objectMatrix", false, Matrix4.CreateTranslation(rotatedLightPosition));
+                        glHelper.Shaders.SetUniformMatrix(oglLightMarkerShaderName, "baseMatrix", false, Matrix4.CreateTranslation(lightPosition));
+                        glHelper.Shaders.SetUniform(oglLightMarkerShaderName, "surfaceColor", new OpenTK.Graphics.Color4(1.0f, 1.0f, 1.0f, 0.5f));
+                        glHelper.Buffers.Render(oglLightMarkerObjectName);
+
+                        /* Render light marker center */
+                        glHelper.Shaders.ActivateProgram(oglLightMarkerShaderName);
+                        glHelper.Shaders.SetUniformMatrix(oglLightMarkerShaderName, "objectMatrix", false, Matrix4.CreateTranslation(lightPosition));
+                        glHelper.Shaders.SetUniformMatrix(oglLightMarkerShaderName, "baseMatrix", false, Matrix4.Identity);
+                        glHelper.Shaders.SetUniform(oglLightMarkerShaderName, "surfaceColor", new OpenTK.Graphics.Color4(0.5f, 0.5f, 0.5f, 0.5f));
+                        glHelper.Buffers.Render(oglLightMarkerObjectName);
+                    }
+                }
+            }
+            else
+            {
+                Matrix4 modelviewMatrix2D = Matrix4.CreateTranslation((glHelper.Viewport.Width / 2), (glHelper.Viewport.Height / 2), 0.0f);
+                Matrix4 modelviewWithImageOffset = Matrix4.Mult(modelviewMatrix2D, Matrix4.CreateTranslation(imageOffset.X, imageOffset.Y, 0.0f));
+
+                /* Set projection, modelview */
+                glHelper.ProjectionType = ProjectionType.Orthographic;
+                glHelper.ZNear = -10.0f;
+                glHelper.ZFar = 10.0f;
+
+                /* Activate empty dummy texture */
+                glHelper.Textures.ActivateTexture(oglEmptyTextureName, TextureUnit.Texture0);
+
+                /* Activate default shader */
+                glHelper.Shaders.ActivateProgram(oglDefaultShaderName);
+
+                /* Set shader uniforms */
+                glHelper.Shaders.SetUniformMatrix(oglDefaultShaderName, "projectionMatrix", false, glHelper.CreateProjectionMatrix());
+                glHelper.Shaders.SetUniformMatrix(oglDefaultShaderName, "modelviewMatrix", false, modelviewMatrix2D);
+                glHelper.Shaders.SetUniformMatrix(oglDefaultShaderName, "objectMatrix", false, Matrix4.Identity);
+                glHelper.Shaders.SetUniform(oglDefaultShaderName, "enableLight", 0);
+                glHelper.Shaders.SetUniform(oglDefaultShaderName, "lightPosition", Vector3.Zero);
+
+                /* Render */
+                glHelper.Buffers.Render(oglAxisMarkerObjectName);
+
+                if (selectedObj != null)
+                {
+                    /* Set shader uniforms */
+                    glHelper.Shaders.SetUniformMatrix(oglDefaultShaderName, "modelviewMatrix", false, modelviewWithImageOffset);
+
+                    if (selectedObj is AnimationData)
+                    {
+                        /* Render animation */
+                        AnimationData anim = (selectedObj as AnimationData);
+                        if (anim.FirstNode != null)
+                        {
+                            currentMatrix = Matrix4.Identity;
+                            RenderAnimationNode(anim.FirstNode);
+                        }
+                    }
+                    else if (selectedObj is AnimationFrameData)
+                    {
+                        AnimationFrameData animFrame = (selectedObj as AnimationFrameData);
+                        currentMatrix = Matrix4.Identity;
+                        RenderAnimationFrame(animFrame, Vector2.Zero);
+                    }
+                    else if (selectedObj is ImageInformation || selectedObj is SpriteData)
+                    {
+                        foreach (string glObjectName in glObjectNames)
+                        {
+                            /* Activate object's texture */
+                            glHelper.Textures.ActivateTexture(glObjectName, TextureUnit.Texture0);
+
+                            /* Set matrices */
+                            Matrix4 translationMatrix = Matrix4.Identity;
+                            if (selectedObj is ImageInformation)
+                            {
+                                ImageInformation image = (selectedObj as ImageInformation);
+                                translationMatrix = Matrix4.CreateTranslation(-(image.Bitmap.Width / 2), -(image.Bitmap.Height / 2), 0.0f);
+                            }
+                            else if (selectedObj is SpriteData)
+                            {
+                                SpriteData sprite = (selectedObj as SpriteData);
+                                translationMatrix = Matrix4.CreateTranslation(-(sprite.Image.Width / 2), -(sprite.Image.Height / 2), 0.0f);
+                            }
+                            glHelper.Shaders.SetUniformMatrix(oglDefaultShaderName, "objectMatrix", false, translationMatrix);
+
+                            /* Render object */
+                            glHelper.Buffers.Render(glObjectName);
+                        }
                     }
                 }
             }
@@ -565,123 +676,6 @@ namespace NisAnim
             string spriteName = animFrame.Sprite.PrepareRender(glHelper);
             glHelper.Textures.ActivateTexture(spriteName, TextureUnit.Texture0);
             glHelper.Buffers.Render(spriteName);
-        }
-
-
-
-
-
-        private void pnlRender_Paint(object sender, PaintEventArgs e)
-        {
-            e.Graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
-            e.Graphics.Clear((sender as Control).BackColor);
-
-            e.Graphics.DrawString(imageOffset.ToString(), SystemFonts.CaptionFont, Brushes.Black, Point.Empty);
-            e.Graphics.TranslateTransform(e.ClipRectangle.Width / 2, e.ClipRectangle.Height / 2);
-            e.Graphics.TranslateTransform(imageOffset.X, imageOffset.Y);
-
-            e.Graphics.DrawLine(Pens.Black, -300, 0, 300, 0);
-            e.Graphics.DrawLine(Pens.Black, 0, -300, 0, 300);
-
-            /* TODO move to individual txf and anmdat classes? */
-            if (selectedObj is ImageInformation)
-            {
-                Bitmap image = (selectedObj as ImageInformation).Bitmap;
-                e.Graphics.DrawImage(image, new Point(-(image.Width / 2), -(image.Height / 2)));
-            }
-            else if (selectedObj is AnimationData)
-            {
-                AnimationData anim = (selectedObj as AnimationData);
-                if (anim.FirstNode != null) DrawAnimationNode(e.Graphics, anim.FirstNode);
-            }
-            else if (selectedObj is AnimationFrameData)
-            {
-                DrawAnimationFrame(e.Graphics, (selectedObj as AnimationFrameData), Point.Empty);
-            }
-            else if (selectedObj is SpriteData)
-            {
-                SpriteData sprite = (selectedObj as SpriteData);
-                e.Graphics.DrawImage(sprite.Image, new Point(-(sprite.Image.Width / 2), -(sprite.Image.Height / 2)));
-            }
-
-            e.Graphics.ResetTransform();
-        }
-
-        private void DrawAnimationNode(Graphics g, AnimationNodeData node)
-        {
-            Matrix prevTransform = g.Transform;
-
-            if (node.ChildNode != null)
-                DrawAnimationNode(g, node.ChildNode);
-
-            if (node.FirstAnimationFrameID != -1)
-            {
-                AnimationFrameData animFrame = node.AnimationFrames.LastOrDefault(x => animCounter >= x.FrameTime);
-
-                maxCounter = Math.Max(maxCounter, node.AnimationFrames.Max(x => x.FrameTime) * 3);
-
-                if (animFrame != null)
-                {
-                    //dunno, probably not...
-                    //if (animFrame.Unknown0x02 == 1) g.Transform = prevTransform;
-
-                    Point nodeOffset = Point.Empty;
-                    if ((node.Unknown0x06 & 0x01) == 0x01)
-                    {
-                        nodeOffset.X = animFrame.Transform.TransformOffset.Offset.X;
-                        nodeOffset.Y = animFrame.Transform.TransformOffset.Offset.Y;
-                    }
-                    else
-                    {
-                        nodeOffset.X = -animFrame.Transform.TransformOffset.Offset.X;
-                        nodeOffset.Y = -animFrame.Transform.TransformOffset.Offset.Y;
-                    }
-
-                    DrawAnimationFrame(g, animFrame, nodeOffset);
-                }
-            }
-
-            if (node.SiblingNode != null)
-                DrawAnimationNode(g, node.SiblingNode);
-
-            g.Transform = prevTransform;
-        }
-
-        private void DrawAnimationFrame(Graphics g, AnimationFrameData animFrame, Point offset)
-        {
-            /* 09016 title screen */
-            /* 00005 senate */
-            /* 00050 desco battle */
-            /* 24001 fuka convo A */
-
-            float scaleX = (animFrame.Transform.Scale.X / 100.0f);
-            float scaleY = (animFrame.Transform.Scale.Y / 100.0f);
-
-            if (scaleX == 0.0f || scaleY == 0.0f) return;
-
-            Point framePosition = new Point(animFrame.Transform.BaseOffset.X + offset.X, animFrame.Transform.BaseOffset.Y + offset.Y);
-
-            /* likely wrong? */
-            //if (animFrame.Sprite.Rectangle.Width == 0) framePosition.X += (animFrame.Sprite.Rectangle.X + animFrame.Sprite.Rectangle.Y) / 2;
-            //if (animFrame.Sprite.Rectangle.Height == 0) framePosition.Y += (animFrame.Sprite.Rectangle.X + animFrame.Sprite.Rectangle.Y) / 2;
-
-            g.TranslateTransform(framePosition.X, framePosition.Y);
-
-            if (animFrame.Unknown0x02 != 1)
-                g.TranslateTransform(animFrame.Sprite.Rectangle.Width / 2, animFrame.Sprite.Rectangle.Height / 2);
-            g.RotateTransform(animFrame.Transform.RotationAngle);
-            g.ScaleTransform(scaleX, scaleY);
-            if (animFrame.Unknown0x02 != 1)
-                g.TranslateTransform(-(animFrame.Sprite.Rectangle.Width / 2), -(animFrame.Sprite.Rectangle.Height / 2));
-
-            g.DrawImage(animFrame.Sprite.Image, Point.Empty);
-
-            if (Properties.Settings.Default.DebugDraw)
-            {
-                Pen debugRectPen = ((animFrame.Transform.RotationAngle != 0 || scaleX != 1.0f || scaleY != 1.0f) ? Pens.OrangeRed : Pens.Yellow);
-                g.DrawRectangle(debugRectPen, new Rectangle(0, 0, animFrame.Sprite.Rectangle.Width, animFrame.Sprite.Rectangle.Height));
-                g.DrawString(string.Format("{{X={0}, Y={1}}}", framePosition.X, framePosition.Y), SystemFonts.StatusFont, Brushes.Blue, Point.Empty);
-            }
         }
 
         private void MainForm_Activated(object sender, EventArgs e)

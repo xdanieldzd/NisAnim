@@ -26,7 +26,7 @@ namespace NisAnim.OpenGL
 
         GLHelper glHelper;
 
-        Dictionary<string, int> programCache, vertexShaderCache, fragmentShaderCache;
+        Dictionary<string, int> programCache, vertexShaderCache, fragmentShaderCache, geometryShaderCache;
 
         bool disposed;
 
@@ -43,6 +43,7 @@ namespace NisAnim.OpenGL
             this.programCache = new Dictionary<string, int>();
             this.vertexShaderCache = new Dictionary<string, int>();
             this.fragmentShaderCache = new Dictionary<string, int>();
+            this.geometryShaderCache = new Dictionary<string, int>();
         }
 
         ~GLShaderManager()
@@ -80,9 +81,13 @@ namespace NisAnim.OpenGL
             foreach (KeyValuePair<string, int> shader in this.fragmentShaderCache.Where(x => GL.IsShader(x.Value)))
                 GL.DeleteShader(shader.Value);
 
+            foreach (KeyValuePair<string, int> shader in geometryShaderCache.Where(x => GL.IsShader(x.Value)))
+                GL.DeleteShader(shader.Value);
+
             this.programCache.Clear();
             this.vertexShaderCache.Clear();
             this.fragmentShaderCache.Clear();
+            this.geometryShaderCache.Clear();
         }
 
         private int GenerateShader(ShaderType shaderType, string shaderString, string callerFunc = default(string))
@@ -106,16 +111,18 @@ namespace NisAnim.OpenGL
             return shaderObject;
         }
 
-        private int GenerateProgram(int vertexObject, int fragmentObject, string callerFunc = default(string))
+        private int GenerateProgram(int vertexObject, int fragmentObject, int geometryObject = -1, string callerFunc = default(string))
         {
             if (callerFunc == default(string)) callerFunc = MethodBase.GetCurrentMethod().ToString();
             if (!GL.IsShader(vertexObject)) throw new GLException(string.Format("{0}: vertexObject is not a shader object", callerFunc));
             if (!GL.IsShader(fragmentObject)) throw new GLException(string.Format("{0}: fragmentObject is not a shader object", callerFunc));
+            if (geometryObject != -1 && !GL.IsShader(geometryObject)) throw new GLException(string.Format("{0}: geometryObject is not a shader object", callerFunc));
 
             int program = GL.CreateProgram();
 
             GL.AttachShader(program, vertexObject);
             GL.AttachShader(program, fragmentObject);
+            if (geometryObject != -1) GL.AttachShader(program, geometryObject);
 
             GL.LinkProgram(program);
 
@@ -212,9 +219,24 @@ namespace NisAnim.OpenGL
             return GetShader(this.fragmentShaderCache, name, MethodBase.GetCurrentMethod().ToString());
         }
 
-        public void AddProgram(string name, int vertexObject, int fragmentObject)
+        public void AddGeometryShader(string name, string shader)
         {
-            this.programCache.Add(name, GenerateProgram(vertexObject, fragmentObject, MethodBase.GetCurrentMethod().ToString()));
+            this.geometryShaderCache.Add(name, GenerateShader(ShaderType.GeometryShader, shader, MethodBase.GetCurrentMethod().ToString()));
+        }
+
+        public void RemoveGeometryShader(string name)
+        {
+            DeleteShader(this.geometryShaderCache, name, MethodBase.GetCurrentMethod().ToString());
+        }
+
+        public int GetGeometryShader(string name)
+        {
+            return GetShader(this.geometryShaderCache, name, MethodBase.GetCurrentMethod().ToString());
+        }
+
+        public void AddProgram(string name, int vertexObject, int fragmentObject, int geometryObject = -1)
+        {
+            this.programCache.Add(name, GenerateProgram(vertexObject, fragmentObject, geometryObject, MethodBase.GetCurrentMethod().ToString()));
         }
 
         public void RemoveProgram(string name)
@@ -222,21 +244,29 @@ namespace NisAnim.OpenGL
             DeleteProgram(name, MethodBase.GetCurrentMethod().ToString());
         }
 
-        public void AddProgramWithShaders(string name, string vertexShader, string fragmentShader)
+        public void AddProgramWithShaders(string name, string vertexShader, string fragmentShader, string geometryShader = default(string))
         {
             int vertexObject = GenerateShader(ShaderType.VertexShader, vertexShader, MethodBase.GetCurrentMethod().ToString());
             int fragmentObject = GenerateShader(ShaderType.FragmentShader, fragmentShader, MethodBase.GetCurrentMethod().ToString());
+            int geometryObject = -1;
 
             this.vertexShaderCache.Add(name, vertexObject);
             this.fragmentShaderCache.Add(name, fragmentObject);
 
-            this.programCache.Add(name, GenerateProgram(vertexObject, fragmentObject, MethodBase.GetCurrentMethod().ToString()));
+            if (geometryShader != default(string))
+            {
+                geometryObject = GenerateShader(ShaderType.GeometryShader, geometryShader, MethodBase.GetCurrentMethod().ToString());
+                this.geometryShaderCache.Add(name, geometryObject);
+            }
+
+            this.programCache.Add(name, GenerateProgram(vertexObject, fragmentObject, geometryObject, MethodBase.GetCurrentMethod().ToString()));
         }
 
         public void RemoveProgramWithShaders(string name)
         {
             DeleteShader(this.vertexShaderCache, name, MethodBase.GetCurrentMethod().ToString());
             DeleteShader(this.fragmentShaderCache, name, MethodBase.GetCurrentMethod().ToString());
+            if (this.geometryShaderCache.ContainsKey(name)) DeleteShader(this.geometryShaderCache, name, MethodBase.GetCurrentMethod().ToString());
             DeleteProgram(name, MethodBase.GetCurrentMethod().ToString());
         }
 
