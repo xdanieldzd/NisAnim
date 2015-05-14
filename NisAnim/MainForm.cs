@@ -22,38 +22,12 @@ namespace NisAnim
 {
     public partial class MainForm : Form
     {
-        const string oglAxisMarkerObjectName = "axisMarkerObj";
-        const string oglLightMarkerObjectName = "lightMarkerObj";
-
-        const string oglEmptyTextureName = "emptyTex";
-
-        const string oglDefaultShaderName = "defaultShader";
-        const string oglLightMarkerShaderName = "lightMarkerShader";
-        const string oglLightLineShaderName = "lightLineShader";
-
-        const float lightStep = 5.0f;
-
         GLHelper glHelper;
         bool render3D;
         Stopwatch stopWatch;
 
         Matrix4 currentMatrix;
         List<string> glObjectNames;
-
-        struct Light
-        {
-            public bool Enabled;
-            public Vector4 Position;
-            public Vector3 Intensities;
-            public float Attenuation;
-            public float AmbientCoefficient;
-            public float ConeAngle;
-            public Vector3 ConeDirection;
-        };
-
-        Light[] lights;
-        Vector3 lightOffset;
-        float lightRotation;
 
         BaseFile loadedFile;
         object selectedObj { get { return pgObject.SelectedObject; } }
@@ -75,35 +49,11 @@ namespace NisAnim
             });
             glControl.Load += ((s, e) =>
             {
-                glHelper.Textures.AddTexture(oglEmptyTextureName, Properties.Resources.Empty);
-                glHelper.Shaders.AddProgramWithShaders(oglDefaultShaderName,
-                    File.ReadAllText("Data\\Default.vert"),
-                    File.ReadAllText("Data\\Default.frag"));
+                Rendering.Initialize(glHelper);
 
-                glHelper.Shaders.AddProgramWithShaders(oglLightMarkerShaderName,
-                    File.ReadAllText("Data\\LightMarker.vert"),
-                    File.ReadAllText("Data\\LightMarker.frag"),
-                    File.ReadAllText("Data\\LightMarker.geom"));
-
-                glHelper.Shaders.AddProgramWithShaders(oglLightLineShaderName,
-                    File.ReadAllText("Data\\LightMarker.vert"),
-                    File.ReadAllText("Data\\LightMarker.frag"),
-                    File.ReadAllText("Data\\LightLine.geom"));
-
-                glHelper.Buffers.AddVertices(oglAxisMarkerObjectName, new GLVertex[]
-                {
-                    new GLVertex(new Vector3(-300.0f, 0.0f, 0.0f), Vector3.Zero, OpenTK.Graphics.Color4.Black, Vector2.Zero),
-                    new GLVertex(new Vector3(300.0f, 0.0f, 0.0f), Vector3.Zero, OpenTK.Graphics.Color4.Black, Vector2.Zero),
-                    new GLVertex(new Vector3(0.0f, 300.0f, 0.0f), Vector3.Zero, OpenTK.Graphics.Color4.Black, Vector2.Zero),
-                    new GLVertex(new Vector3(0.0f, -300.0f, 0.0f), Vector3.Zero, OpenTK.Graphics.Color4.Black, Vector2.Zero)
-                });
-                glHelper.Buffers.AddIndices(oglAxisMarkerObjectName, new uint[] { 0, 1, 2, 3 }, PrimitiveType.Lines);
-
-                glHelper.Buffers.AddVertices(oglLightMarkerObjectName, new GLVertex[]
-                {
-                    new GLVertex(Vector3.Zero, Vector3.Zero, OpenTK.Graphics.Color4.White, Vector2.Zero)
-                });
-                glHelper.Buffers.AddIndices(oglLightMarkerObjectName, new uint[] { 0 }, PrimitiveType.Points);
+                glHelper.Shaders.SetUniform(Rendering.DefaultShaderName, "materialTexture", 0);
+                glHelper.Shaders.SetUniform(Rendering.DefaultShaderName, "materialShininess", 80.0f);
+                glHelper.Shaders.SetUniform(Rendering.DefaultShaderName, "materialSpecularColor", new Vector3(1.0f, 1.0f, 1.0f));
             });
 
             render3D = false;
@@ -111,42 +61,6 @@ namespace NisAnim
 
             currentMatrix = Matrix4.Identity;
             glObjectNames = new List<string>();
-
-            lights = new Light[5];
-
-            lights[0] = new Light();
-            lights[0].Enabled = true;
-            lights[0].Position = Vector4.Zero;
-            lights[0].Intensities = new Vector3(0.75f, 0.75f, 0.75f);
-            lights[0].Attenuation = 0.2f;
-            lights[0].AmbientCoefficient = 0.5f;
-
-            lights[1] = new Light();
-            lights[1].Enabled = true;
-            lights[1].Intensities = new Vector3(0.4f, 0.7f, 1.0f);
-            lights[1].Attenuation = 0.2f;
-            lights[1].AmbientCoefficient = 0.05f;
-
-            lights[2] = new Light();
-            lights[2].Enabled = true;
-            lights[2].Intensities = new Vector3(1.0f, 0.7f, 0.4f);
-            lights[2].Attenuation = 0.2f;
-            lights[2].AmbientCoefficient = 0.05f;
-
-            lights[3] = new Light();
-            lights[3].Enabled = true;
-            lights[3].Intensities = new Vector3(0.4f, 0.1f, 0.7f);
-            lights[3].Attenuation = 0.2f;
-            lights[3].AmbientCoefficient = 0.05f;
-
-            lights[4] = new Light();
-            lights[4].Enabled = true;
-            lights[4].Intensities = new Vector3(0.7f, 1.0f, 0.4f);
-            lights[4].Attenuation = 0.2f;
-            lights[4].AmbientCoefficient = 0.05f;
-
-            lightOffset = new Vector3(0.0f, 20.0f, 0.0f);
-            lightRotation = 0.0f;
 
             SetFormTitle();
 
@@ -182,10 +96,7 @@ namespace NisAnim
                 stopWatch.Reset();
 
                 if (Properties.Settings.Default.EnableLighting)
-                {
-                    lightRotation += (float)milliseconds / 5.0f;
-                    if (lightRotation >= 360.0f) lightRotation = 0.0f;
-                }
+                    Rendering.RotateLights(milliseconds);
             });
 
             tsslStatus.Text = "Ready";
@@ -480,21 +391,7 @@ namespace NisAnim
             {
                 glHelper.Camera.KeysHeld.Add(e.KeyCode);
 
-                switch (e.KeyCode)
-                {
-                    case Keys.D1: lights[0].Enabled = !lights[0].Enabled; break;
-                    case Keys.D2: lights[1].Enabled = !lights[1].Enabled; break;
-                    case Keys.D3: lights[2].Enabled = !lights[2].Enabled; break;
-                    case Keys.D4: lights[3].Enabled = !lights[3].Enabled; break;
-                    case Keys.D5: lights[4].Enabled = !lights[4].Enabled; break;
-
-                    case Keys.NumPad8: lightOffset.Z -= lightStep; break;
-                    case Keys.NumPad2: lightOffset.Z += lightStep; break;
-                    case Keys.NumPad4: lightOffset.X -= lightStep; break;
-                    case Keys.NumPad6: lightOffset.X += lightStep; break;
-                    case Keys.NumPad7: lightOffset.Y += lightStep; break;
-                    case Keys.NumPad9: lightOffset.Y -= lightStep; break;
-                }
+                Rendering.HandleLightKeydowns(e.KeyCode);
             }
         }
 
@@ -536,47 +433,25 @@ namespace NisAnim
                 {
                     glHelper.Camera.Update();
 
-                    Matrix4 lightMatrix = Matrix4.CreateRotationY(lightRotation);
-                    Vector4 rotatedLightPosition = Vector4.Transform(new Vector4(40.0f, 0.0f, 0.0f, 0.0f), lightMatrix);
-
-                    lights[0].Position = new Vector4(glHelper.Camera.Position, 0.0f);
-
-                    lights[1].Position = rotatedLightPosition + new Vector4(lightOffset, 0.0f);
-                    lights[2].Position = new Vector4(-rotatedLightPosition.X, rotatedLightPosition.Y, -rotatedLightPosition.Z, 0.0f) + new Vector4(lightOffset, 0.0f);
-                    lights[3].Position = new Vector4(rotatedLightPosition.X, rotatedLightPosition.Z, rotatedLightPosition.Y, 0.0f) + new Vector4(lightOffset, 0.0f);
-                    lights[4].Position = new Vector4(-rotatedLightPosition.X, -rotatedLightPosition.Z, rotatedLightPosition.Y, 0.0f) + new Vector4(lightOffset, 0.0f);
-
                     /* Set projection, modelview */
                     glHelper.ProjectionType = ProjectionType.Perspective;
                     glHelper.ZNear = 0.01f;
                     glHelper.ZFar = 1000.0f;
 
                     /* Activate default shader */
-                    glHelper.Shaders.ActivateProgram(oglDefaultShaderName);
+                    glHelper.Shaders.ActivateProgram(Rendering.DefaultShaderName);
 
                     /* Set shader uniforms */
-                    glHelper.Shaders.SetUniformMatrix(oglDefaultShaderName, "projectionMatrix", false, glHelper.CreateProjectionMatrix());
-                    glHelper.Shaders.SetUniformMatrix(oglDefaultShaderName, "modelviewMatrix", false, Matrix4.Identity);
-                    glHelper.Shaders.SetUniformMatrix(oglDefaultShaderName, "objectMatrix", false, Matrix4.Identity);
+                    glHelper.Shaders.SetUniformMatrix(Rendering.DefaultShaderName, "projectionMatrix", false, glHelper.CreateProjectionMatrix());
+                    glHelper.Shaders.SetUniformMatrix(Rendering.DefaultShaderName, "modelviewMatrix", false, Matrix4.Identity);
+                    glHelper.Shaders.SetUniformMatrix(Rendering.DefaultShaderName, "objectMatrix", false, Matrix4.Identity);
+                    glHelper.Shaders.SetUniform(Rendering.DefaultShaderName, "cameraPosition", glHelper.Camera.Position);
+                    glHelper.Shaders.SetUniform(Rendering.DefaultShaderName, "enableLight", Convert.ToInt32(Properties.Settings.Default.EnableLighting));
 
-                    glHelper.Shaders.SetUniform(oglDefaultShaderName, "cameraPosition", glHelper.Camera.Position);
-
-                    glHelper.Shaders.SetUniform(oglDefaultShaderName, "materialTexture", 0);
-                    glHelper.Shaders.SetUniform(oglDefaultShaderName, "materialShininess", 80.0f);
-                    glHelper.Shaders.SetUniform(oglDefaultShaderName, "materialSpecularColor", new Vector3(1.0f, 1.0f, 1.0f));
-
-                    glHelper.Shaders.SetUniform(oglDefaultShaderName, "enableLight", Convert.ToInt32(Properties.Settings.Default.EnableLighting));
-                    glHelper.Shaders.SetUniform(oglDefaultShaderName, "numLights", lights.Length);
-
-                    for (int i = 0; i < lights.Length; i++)
+                    if (Properties.Settings.Default.EnableLighting)
                     {
-                        glHelper.Shaders.SetUniform(oglDefaultShaderName, string.Format("lights[{0}].enabled", i), Convert.ToInt32(lights[i].Enabled));
-                        glHelper.Shaders.SetUniform(oglDefaultShaderName, string.Format("lights[{0}].position", i), lights[i].Position);
-                        glHelper.Shaders.SetUniform(oglDefaultShaderName, string.Format("lights[{0}].intensities", i), lights[i].Intensities);
-                        glHelper.Shaders.SetUniform(oglDefaultShaderName, string.Format("lights[{0}].attenuation", i), lights[i].Attenuation);
-                        glHelper.Shaders.SetUniform(oglDefaultShaderName, string.Format("lights[{0}].ambientCoefficient", i), lights[i].AmbientCoefficient);
-                        glHelper.Shaders.SetUniform(oglDefaultShaderName, string.Format("lights[{0}].coneAngle", i), lights[i].ConeAngle);
-                        glHelper.Shaders.SetUniform(oglDefaultShaderName, string.Format("lights[{0}].coneDirection", i), lights[i].ConeDirection);
+                        Rendering.ApplyLightRotation();
+                        Rendering.UpdateLightUniforms(Rendering.DefaultShaderName, "numLights", "lights");
                     }
 
                     /* Render each known object */
@@ -589,38 +464,9 @@ namespace NisAnim
                         glHelper.Buffers.Render(glObjectName);
                     }
 
+                    /* Render light visualization */
                     if (Properties.Settings.Default.EnableLighting)
-                    {
-                        for (int i = 1; i < lights.Length; i++)
-                        {
-                            if (!lights[i].Enabled) continue;
-
-                            /* Render light marker line */
-                            glHelper.Shaders.ActivateProgram(oglLightLineShaderName);
-                            glHelper.Shaders.SetUniformMatrix(oglLightLineShaderName, "projectionMatrix", false, glHelper.CreateProjectionMatrix());
-                            glHelper.Shaders.SetUniformMatrix(oglLightLineShaderName, "modelviewMatrix", false, Matrix4.Identity);
-                            glHelper.Shaders.SetUniformMatrix(oglLightLineShaderName, "objectMatrix", false, Matrix4.CreateTranslation(lights[i].Position.Xyz));
-                            glHelper.Shaders.SetUniformMatrix(oglLightLineShaderName, "baseMatrix", false, Matrix4.CreateTranslation(lightOffset));
-                            glHelper.Shaders.SetUniform(oglLightLineShaderName, "surfaceColor", new OpenTK.Graphics.Color4(0.0f, 0.0f, 0.0f, 0.5f));
-                            glHelper.Buffers.Render(oglLightMarkerObjectName);
-
-                            /* Render light marker */
-                            glHelper.Shaders.ActivateProgram(oglLightMarkerShaderName);
-                            glHelper.Shaders.SetUniformMatrix(oglLightMarkerShaderName, "projectionMatrix", false, glHelper.CreateProjectionMatrix());
-                            glHelper.Shaders.SetUniformMatrix(oglLightMarkerShaderName, "modelviewMatrix", false, Matrix4.Identity);
-                            glHelper.Shaders.SetUniformMatrix(oglLightMarkerShaderName, "objectMatrix", false, Matrix4.CreateTranslation(lights[i].Position.Xyz));
-                            glHelper.Shaders.SetUniformMatrix(oglLightMarkerShaderName, "baseMatrix", false, Matrix4.CreateTranslation(lightOffset));
-                            glHelper.Shaders.SetUniform(oglLightMarkerShaderName, "surfaceColor", new OpenTK.Graphics.Color4(lights[i].Intensities.X, lights[i].Intensities.Y, lights[i].Intensities.Z, 0.75f));
-                            glHelper.Buffers.Render(oglLightMarkerObjectName);
-
-                            /* Render light marker center */
-                            glHelper.Shaders.ActivateProgram(oglLightMarkerShaderName);
-                            glHelper.Shaders.SetUniformMatrix(oglLightMarkerShaderName, "objectMatrix", false, Matrix4.CreateTranslation(lightOffset));
-                            glHelper.Shaders.SetUniformMatrix(oglLightMarkerShaderName, "baseMatrix", false, Matrix4.Identity);
-                            glHelper.Shaders.SetUniform(oglLightMarkerShaderName, "surfaceColor", new OpenTK.Graphics.Color4(0.5f, 0.5f, 0.5f, 0.5f));
-                            glHelper.Buffers.Render(oglLightMarkerObjectName);
-                        }
-                    }
+                        Rendering.RenderLightVisualization();
                 }
                 else
                 {
@@ -633,24 +479,24 @@ namespace NisAnim
                     glHelper.ZFar = 10.0f;
 
                     /* Activate empty dummy texture */
-                    glHelper.Textures.ActivateTexture(oglEmptyTextureName, TextureUnit.Texture0);
+                    glHelper.Textures.ActivateTexture(Rendering.EmptyTextureName, TextureUnit.Texture0);
 
                     /* Activate default shader */
-                    glHelper.Shaders.ActivateProgram(oglDefaultShaderName);
+                    glHelper.Shaders.ActivateProgram(Rendering.DefaultShaderName);
 
                     /* Set shader uniforms */
-                    glHelper.Shaders.SetUniformMatrix(oglDefaultShaderName, "projectionMatrix", false, glHelper.CreateProjectionMatrix());
-                    glHelper.Shaders.SetUniformMatrix(oglDefaultShaderName, "modelviewMatrix", false, modelviewMatrix2D);
-                    glHelper.Shaders.SetUniformMatrix(oglDefaultShaderName, "objectMatrix", false, Matrix4.Identity);
-                    glHelper.Shaders.SetUniform(oglDefaultShaderName, "enableLight", 0);
+                    glHelper.Shaders.SetUniformMatrix(Rendering.DefaultShaderName, "projectionMatrix", false, glHelper.CreateProjectionMatrix());
+                    glHelper.Shaders.SetUniformMatrix(Rendering.DefaultShaderName, "modelviewMatrix", false, modelviewMatrix2D);
+                    glHelper.Shaders.SetUniformMatrix(Rendering.DefaultShaderName, "objectMatrix", false, Matrix4.Identity);
+                    glHelper.Shaders.SetUniform(Rendering.DefaultShaderName, "enableLight", 0);
 
                     /* Render */
-                    glHelper.Buffers.Render(oglAxisMarkerObjectName);
+                    glHelper.Buffers.Render(Rendering.AxisMarkerObjectName);
 
                     if (selectedObj != null)
                     {
                         /* Set shader uniforms */
-                        glHelper.Shaders.SetUniformMatrix(oglDefaultShaderName, "modelviewMatrix", false, modelviewWithImageOffset);
+                        glHelper.Shaders.SetUniformMatrix(Rendering.DefaultShaderName, "modelviewMatrix", false, modelviewWithImageOffset);
 
                         if (selectedObj is AnimationData)
                         {
@@ -687,7 +533,7 @@ namespace NisAnim
                                     SpriteData sprite = (selectedObj as SpriteData);
                                     translationMatrix = Matrix4.CreateTranslation(-(sprite.Image.Width / 2), -(sprite.Image.Height / 2), 0.0f);
                                 }
-                                glHelper.Shaders.SetUniformMatrix(oglDefaultShaderName, "objectMatrix", false, translationMatrix);
+                                glHelper.Shaders.SetUniformMatrix(Rendering.DefaultShaderName, "objectMatrix", false, translationMatrix);
 
                                 /* Render object */
                                 glHelper.Buffers.Render(glObjectName);
@@ -757,7 +603,7 @@ namespace NisAnim
             if (animFrame.Unknown0x02 != 1)
                 currentMatrix = Matrix4.Mult(Matrix4.CreateTranslation(-(animFrame.Sprite.Rectangle.Width / 2), -(animFrame.Sprite.Rectangle.Height / 2), 0.0f), currentMatrix);
 
-            glHelper.Shaders.SetUniformMatrix(oglDefaultShaderName, "objectMatrix", false, currentMatrix);
+            glHelper.Shaders.SetUniformMatrix(Rendering.DefaultShaderName, "objectMatrix", false, currentMatrix);
 
             string spriteName = animFrame.Sprite.PrepareRender(glHelper);
             glHelper.Textures.ActivateTexture(spriteName, TextureUnit.Texture0);
