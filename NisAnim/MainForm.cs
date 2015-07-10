@@ -28,6 +28,7 @@ namespace NisAnim
 
         Matrix4 currentMatrix;
         List<string> glObjectNames;
+        Dictionary<string, Matrix4> glObjectMatrixMap;
 
         BaseFile loadedFile;
         object selectedObj { get { return pgObject.SelectedObject; } }
@@ -61,6 +62,7 @@ namespace NisAnim
 
             currentMatrix = Matrix4.Identity;
             glObjectNames = new List<string>();
+            glObjectMatrixMap = new Dictionary<string, Matrix4>();
 
             SetFormTitle();
 
@@ -311,14 +313,55 @@ namespace NisAnim
             else if (selectedObj is ObfPrimitiveListEntry)
             {
                 ObfPrimitiveListEntry primitiveListEntry = (selectedObj as ObfPrimitiveListEntry);
-                glObjectNames.Add(primitiveListEntry.PrepareRender(glHelper));
+                string primitiveListName = primitiveListEntry.PrepareRender(glHelper);
+
+                glObjectNames.Add(primitiveListName);
+                //if (!glObjectMatrixMap.ContainsKey(primitiveListName))
+                glObjectMatrixMap.Add(primitiveListName, Matrix4.Identity);
+
+                render3D = true;
+            }
+            else if (selectedObj is ObfGroupListEntry)
+            {
+                ObfGroupListEntry groupListEntry = (selectedObj as ObfGroupListEntry);
+                List<string> groupListNames = groupListEntry.PrepareRender(glHelper);
+
+                glObjectNames.AddRange(groupListNames);
+                foreach (string groupListName in groupListNames)
+                    if (!glObjectMatrixMap.ContainsKey(groupListName))
+                        glObjectMatrixMap.Add(groupListName, Matrix4.Identity);
+
+                render3D = true;
+            }
+            else if (selectedObj is ObfNodeListEntry)
+            {
+                ObfNodeListEntry nodeListEntry = (selectedObj as ObfNodeListEntry);
+
+                if (nodeListEntry.Group != null)
+                {
+                    List<string> nodeListNames = nodeListEntry.Group.PrepareRender(glHelper);
+
+                    glObjectNames.AddRange(nodeListNames);
+                    foreach (string nodeListName in nodeListNames)
+                        if (!glObjectMatrixMap.ContainsKey(nodeListName))
+                            glObjectMatrixMap.Add(nodeListName, nodeListEntry.GetTransformationMatrix(0));
+                }
 
                 render3D = true;
             }
             else if (selectedObj is ObfObjectListEntry)
             {
                 ObfObjectListEntry objectListEntry = (selectedObj as ObfObjectListEntry);
-                glObjectNames.AddRange(objectListEntry.PrepareRender(glHelper));
+
+                foreach (ObfNodeListEntry nodeListEntry in objectListEntry.Nodes.Where(x => x.Group != null))
+                {
+                    List<string> nodeListNames = nodeListEntry.Group.PrepareRender(glHelper);
+
+                    glObjectNames.AddRange(nodeListNames);
+                    foreach (string nodeListName in nodeListNames)
+                        if (!glObjectMatrixMap.ContainsKey(nodeListName))
+                            glObjectMatrixMap.Add(nodeListName, nodeListEntry.GetTransformationMatrix(0));
+                }
 
                 render3D = true;
             }
@@ -423,6 +466,7 @@ namespace NisAnim
             }
 
             glObjectNames.Clear();
+            glObjectMatrixMap.Clear();
         }
 
         private void Render()
@@ -459,6 +503,9 @@ namespace NisAnim
                     {
                         /* Activate object's texture */
                         glHelper.Textures.ActivateTexture(glObjectName, TextureUnit.Texture0);
+
+                        if (glObjectMatrixMap.ContainsKey(glObjectName))
+                            glHelper.Shaders.SetUniformMatrix(Rendering.DefaultShaderName, "objectMatrix", false, glObjectMatrixMap[glObjectName]);
 
                         /* Render */
                         glHelper.Buffers.Render(glObjectName);

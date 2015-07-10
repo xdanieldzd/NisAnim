@@ -93,7 +93,8 @@ namespace NisAnim.OpenGL
 
             newImage.UnlockBits(bmpData);
 
-            this.textureCache.Add(name, newId);
+            if (!this.textureCache.ContainsKey(name))
+                this.textureCache.Add(name, newId);
         }
 
         public void AddTexture(string name, int id)
@@ -101,7 +102,8 @@ namespace NisAnim.OpenGL
             if (name == string.Empty) throw new GLException(string.Format("{0}: name cannot be empty", System.Reflection.MethodBase.GetCurrentMethod()));
             if (!GL.IsTexture(id)) throw new GLException(string.Format("{0}: id must be a texture", System.Reflection.MethodBase.GetCurrentMethod()));
 
-            this.textureCache.Add(name, id);
+            if (!this.textureCache.ContainsKey(name))
+                this.textureCache.Add(name, id);
         }
 
         public void RemoveTexture(string name)
@@ -113,8 +115,6 @@ namespace NisAnim.OpenGL
                 GL.DeleteTexture(this.textureCache[name]);
                 this.textureCache.Remove(name);
             }
-            else
-                throw new GLException(string.Format("{0}: Cannot remove texture '{1}'; texture not found", System.Reflection.MethodBase.GetCurrentMethod(), name));
         }
 
         public int GetTexture(string name)

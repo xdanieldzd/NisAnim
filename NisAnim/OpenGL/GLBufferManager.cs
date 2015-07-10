@@ -142,7 +142,8 @@ namespace NisAnim.OpenGL
 
             GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
 
-            this.vertexBufferCache.Add(name, newBuffer);
+            if (!this.vertexBufferCache.ContainsKey(name))
+                this.vertexBufferCache.Add(name, newBuffer);
 
             AddToNameList(name);
         }
@@ -176,9 +177,14 @@ namespace NisAnim.OpenGL
 
             GL.BindBuffer(BufferTarget.ElementArrayBuffer, 0);
 
-            this.elementBufferCache.Add(name, newBuffer);
-            this.elementBufferNumIndices.Add(name, data.Length);
-            this.elementBufferPrimitiveTypes.Add(name, primitiveType);
+            if (!this.elementBufferCache.ContainsKey(name))
+                this.elementBufferCache.Add(name, newBuffer);
+
+            if (!this.elementBufferNumIndices.ContainsKey(name))
+                this.elementBufferNumIndices.Add(name, data.Length);
+
+            if (!this.elementBufferPrimitiveTypes.ContainsKey(name))
+                this.elementBufferPrimitiveTypes.Add(name, primitiveType);
 
             AddToNameList(name);
         }
@@ -207,8 +213,6 @@ namespace NisAnim.OpenGL
 
                 RemoveFromNameList(name);
             }
-            else
-                throw new GLException(string.Format("{0}: Cannot remove buffer '{1}'; buffer not found", callerFunc, name));
         }
 
         private int GetDataBuffer(Dictionary<string, int> cache, string name, string callerFunc = default(string))
