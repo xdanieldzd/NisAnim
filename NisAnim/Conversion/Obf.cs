@@ -544,7 +544,8 @@ namespace NisAnim.Conversion
             Offset = reader.BaseStream.Position;
 
             /* TODO: using X position & normal as-is makes certain things appear mirrored (ex. albatross collar floor, geoblocks?); just inverting them feels wrong somehow, tho... */
-            Position = new Vector3(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle());
+            /* TEMP: invert Z, just testing */
+            Position = new Vector3(reader.ReadSingle(), reader.ReadSingle(), -reader.ReadSingle());
 
             Normals = new Vector3(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle());
             UnknownVector0x18 = new Vector3(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle());
@@ -711,7 +712,7 @@ namespace NisAnim.Conversion
                     transformEntry.Translation = new Vector3(
                         GetTransformValue(reader, transformEntry.TranslationXIndex),
                         GetTransformValue(reader, transformEntry.TranslationYIndex),
-                        GetTransformValue(reader, transformEntry.TranslationZIndex));
+                        -GetTransformValue(reader, transformEntry.TranslationZIndex));
 
                     transformEntry.Rotation = new Vector3(
                         GetTransformValue(reader, transformEntry.RotationXIndex),
