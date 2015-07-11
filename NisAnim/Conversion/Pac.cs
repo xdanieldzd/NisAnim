@@ -22,6 +22,8 @@ namespace NisAnim.Conversion
 
         [DisplayName("Detected File Type")]
         public Type DetectedFileType { get; private set; }
+        [DisplayName("Calculated Length")]
+        public uint Length { get; private set; }
 
         public PacFile(Pac parentFile, EndianBinaryReader reader)
         {
@@ -36,6 +38,15 @@ namespace NisAnim.Conversion
             reader.BaseStream.Seek(position, SeekOrigin.Begin);
         }
 
+        public void SetLength(PacFile[] files)
+        {
+            int nextFileIdx = (Array.IndexOf(files, this) + 1);
+            if (nextFileIdx < files.Length)
+                Length = files[nextFileIdx].Offset - Offset;
+            else
+                Length = (uint)(ParentFile.FileSize - Offset);
+        }
+
         public MemoryStream GetStream(MemoryStream parentStream)
         {
             using (MemoryStream tempStream = new MemoryStream(parentStream.ToArray()))
@@ -44,7 +55,7 @@ namespace NisAnim.Conversion
 
                 using (EndianBinaryReader reader = new EndianBinaryReader(tempStream))
                 {
-                    return new MemoryStream(reader.ReadBytes((int)(tempStream.Length - tempStream.Position)));
+                    return new MemoryStream(reader.ReadBytes((int)Length));
                 }
             }
         }
@@ -69,6 +80,8 @@ namespace NisAnim.Conversion
 
         [Browsable(false)]
         public long DataStartPosition { get; private set; }
+        [Browsable(false)]
+        public long FileSize { get; private set; }
 
         bool disposed = false;
 
@@ -90,6 +103,10 @@ namespace NisAnim.Conversion
 
                 Files = new PacFile[NumFiles];
                 for (int i = 0; i < Files.Length; i++) Files[i] = new PacFile(this, reader);
+
+                FileSize = reader.BaseStream.Length;
+
+                foreach (PacFile file in Files) file.SetLength(Files);
 
                 DataStartPosition = reader.BaseStream.Position;
             }
