@@ -365,6 +365,13 @@ namespace NisAnim
 
                 render3D = true;
             }
+            else if (selectedObj is MapChr)
+            {
+                MapChr mapChrFile = (selectedObj as MapChr);
+                //
+
+                //todo!
+            }
 
             animCounter = 0;
             maxCounter = 0;

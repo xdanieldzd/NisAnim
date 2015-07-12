@@ -56,6 +56,7 @@
   <ItemGroup>
     <Compile Include="Conversion\AnmDat.cs" />
     <Compile Include="Conversion\BaseFile.cs" />
+    <Compile Include="Conversion\MapChr.cs" />
     <Compile Include="Conversion\NisPack.cs" />
     <Compile Include="Conversion\Obf.cs" />
     <Compile Include="Conversion\Pac.cs" />
