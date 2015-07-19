@@ -9,6 +9,7 @@ using NisAnim.IO;
 
 namespace NisAnim.Conversion
 {
+    [DisplayName("Unit")]
     public class MapChrUnit
     {
         [DisplayName("[Parent]")]
@@ -20,8 +21,8 @@ namespace NisAnim.Conversion
         public ushort Unknown0x02 { get; private set; }
         public ushort Unknown0x04 { get; private set; }
         public short PositionX { get; private set; }
-        public short PositionY { get; private set; }
-        public short PositionZ { get; private set; }
+        public short PositionY { get; private set; }    //invert to match obf models? i.e. -12 -> 12
+        public short PositionZ { get; private set; }    // ""
         public ushort Unknown0x0C { get; private set; }
         public ushort Unknown0x0E { get; private set; }
         public ushort Unknown0x10 { get; private set; }
@@ -185,10 +186,10 @@ namespace NisAnim.Conversion
         }
     }
 
+    [DisplayName("Map Character File")]
+    [FileNamePattern("(map)(.*?)\\.(chr)$")]
     public class MapChr : BaseFile
     {
-        public const string FileNamePattern = "(map)(.*?)\\.(chr)$";
-
         public uint NumUnits { get; private set; }
         public uint Unknown0x04 { get; private set; }
         public uint Unknown0x08 { get; private set; }

@@ -113,10 +113,9 @@ namespace NisAnim.Conversion
     }
 
     [DisplayName("Txf Image File")]
+    [FileNamePattern("(.*?)\\.(txf)$")]
     public class Txf : BaseFile
     {
-        public const string FileNamePattern = "(.*?)\\.(txf)$";
-
         public static Dictionary<TxfDataFormat, int> BitsPerPixel = new Dictionary<TxfDataFormat, int>()
         {
             { TxfDataFormat.Argb8888, 32 },

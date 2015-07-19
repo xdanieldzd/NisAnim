@@ -242,6 +242,8 @@ namespace NisAnim
         {
             pgObject.SelectedObject = e.Node.Tag;
 
+            /* TODO: a more sensible way of encapsulating rendering-related code instead of this mess and Render() below... */
+
             ClearObjects();
 
             if (selectedObj is NisPackFile)
@@ -368,7 +370,30 @@ namespace NisAnim
             else if (selectedObj is MapChr)
             {
                 MapChr mapChrFile = (selectedObj as MapChr);
-                //
+
+                /* TEMP map chr unit paint test thing */
+                if (Environment.MachineName == "NANAMI-X")  // :P
+                {
+                    const int unitSize = 6;
+
+                    using (Bitmap bmp = new Bitmap(512, 512))
+                    {
+                        using (Graphics g = Graphics.FromImage(bmp))
+                        {
+                            g.Clear(Color.Black);
+
+                            int centerX = bmp.Width / 2;
+                            int centerY = bmp.Height / 2;
+
+                            foreach (MapChrUnit unit in mapChrFile.Units)
+                            {
+                                g.FillRectangle(Brushes.Gray, new Rectangle(unit.PositionX, unit.PositionZ, unitSize, unitSize));
+                                g.DrawString(string.Format("{0}\n{1}\n{2}", unit.PositionX, unit.PositionY, unit.PositionZ), DefaultFont, Brushes.White, unit.PositionX, unit.PositionZ);
+                            }
+                        }
+                        bmp.Save(@"C:\temp\d4-map.png");
+                    }
+                }
 
                 //todo!
             }

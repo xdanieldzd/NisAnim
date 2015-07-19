@@ -17,29 +17,31 @@ namespace NisAnim.IO
         public static Type IdentifyFile(EndianBinaryReader reader, string fileName)
         {
             long position = reader.BaseStream.Position;
+            List<Tuple<Type, string, int>> matchedTypes = new List<Tuple<Type, string, int>>();
 
             Type baseType = typeof(BaseFile);
-            foreach (Type t in baseType.Assembly.GetTypes().Where(x => x.BaseType == baseType))
+            foreach (Type t in baseType.Assembly.GetTypes().Where(x => x.IsSubclassOf(baseType)))
             {
                 FieldInfo fi = t.GetField("MagicNumber", BindingFlags.Public | BindingFlags.Static);
                 if (fi != null)
                 {
                     string magic = (fi.GetValue(null) as string);
                     reader.BaseStream.Seek(position, SeekOrigin.Begin);
-                    if (magic == Encoding.ASCII.GetString(reader.ReadBytes(magic.Length))) return t;
+                    if (magic == Encoding.ASCII.GetString(reader.ReadBytes(magic.Length))) matchedTypes.Add(new Tuple<Type, string, int>(t, null, int.MaxValue));
                 }
 
-                fi = t.GetField("FileNamePattern", BindingFlags.Public | BindingFlags.Static);
-                if (fi != null)
+                FileNamePatternAttribute attrib = (FileNamePatternAttribute)t.GetCustomAttributes(typeof(FileNamePatternAttribute), false).FirstOrDefault();
+                if (attrib != null)
                 {
-                    string pat = (fi.GetValue(null) as string);
-                    Regex reg = new Regex(pat);
-
-                    if (reg.IsMatch(Path.GetFileName(fileName))) return t;
+                    Regex reg = new Regex(attrib.Pattern);
+                    if (reg.IsMatch(Path.GetFileName(fileName)))
+                        matchedTypes.Add(new Tuple<Type, string, int>(t, attrib.Pattern, attrib.Pattern.Length));
                 }
             }
 
-            return null;
+            /* Assume longer Regex pattern means more precise match (i.e. "*.pac" vs "map*.pac") */
+            Tuple<Type, string, int> bestMatch = matchedTypes.OrderByDescending(x => x.Item3).FirstOrDefault();
+            return (bestMatch == null ? null : bestMatch.Item1);
         }
 
         public static TreeNode TraverseObject(TreeNode parentNode, string name, object obj, bool recurse = false)

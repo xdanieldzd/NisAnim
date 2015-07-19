@@ -470,10 +470,9 @@ namespace NisAnim.Conversion
     }
 
     [DisplayName("Animation Data File")]
+    [FileNamePattern("(anm)(.*?)\\.(dat)$")]
     public class AnmDat : BaseFile
     {
-        public const string FileNamePattern = "(anm)(.*?)\\.(dat)$";
-
         [DisplayName("Info Block Data Size")]
         public uint InfoBlockSize { get; private set; }
         [DisplayName("Image Data Size")]

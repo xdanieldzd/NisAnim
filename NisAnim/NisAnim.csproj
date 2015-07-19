@@ -57,10 +57,12 @@
     <Compile Include="Conversion\AnmDat.cs" />
     <Compile Include="Conversion\BaseFile.cs" />
     <Compile Include="Conversion\MapChr.cs" />
+    <Compile Include="Conversion\MapPac.cs" />
     <Compile Include="Conversion\NisPack.cs" />
     <Compile Include="Conversion\Obf.cs" />
     <Compile Include="Conversion\Pac.cs" />
     <Compile Include="Conversion\Txf.cs" />
+    <Compile Include="IO\FileNamePatternAttribute.cs" />
     <Compile Include="OpenGL\GLBufferManager.cs" />
     <Compile Include="OpenGL\GLCamera.cs" />
     <Compile Include="OpenGL\GLException.cs" />

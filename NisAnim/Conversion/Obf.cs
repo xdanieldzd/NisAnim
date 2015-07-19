@@ -617,10 +617,9 @@ namespace NisAnim.Conversion
     }
 
     [DisplayName("Obf File")]
+    [FileNamePattern("(.*?)\\.(obf)$")]
     public class Obf : BaseFile
     {
-        public const string FileNamePattern = "(.*?)\\.(obf)$";
-
         [DisplayName("File Size")]
         public uint FileSize { get; private set; }
         [DisplayName("Unknown 0x04")]

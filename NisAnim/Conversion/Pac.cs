@@ -62,10 +62,9 @@ namespace NisAnim.Conversion
     }
 
     [DisplayName("Pac File")]
+    [FileNamePattern("(.*?)\\.(pac)$")]
     public class Pac : BaseFile
     {
-        public const string FileNamePattern = "(.*?)\\.(pac)$";
-
         [DisplayName("Number of Files")]
         public uint NumFiles { get; private set; }
         [DisplayName("Unknown 0x04")]
