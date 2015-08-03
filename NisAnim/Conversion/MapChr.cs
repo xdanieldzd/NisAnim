@@ -73,16 +73,16 @@ namespace NisAnim.Conversion
         public ushort Unknown0x7A { get; private set; }
         public short Unknown0x7C { get; private set; }
         public ushort Unknown0x7E { get; private set; }
-        public ushort Unknown0x80 { get; private set; } //some other ID? items?
+        public ushort Slot1ItemID { get; private set; } //802 = paw gloves?
         public ushort Unknown0x82 { get; private set; }
         public uint Unknown0x84 { get; private set; }
-        public ushort Unknown0x88 { get; private set; } //some other ID? items?
+        public ushort Slot2ItemID { get; private set; } //1002 = pot lid?
         public ushort Unknown0x8A { get; private set; }
         public uint Unknown0x8C { get; private set; }
-        public ushort Unknown0x90 { get; private set; } //some other ID? items?
+        public ushort Slot3ItemID { get; private set; } //some other ID? items?
         public ushort Unknown0x92 { get; private set; }
         public uint Unknown0x94 { get; private set; }
-        public ushort Unknown0x98 { get; private set; } //some other ID? items?
+        public ushort Slot4ItemID { get; private set; } //some other ID? items?
         public ushort Unknown0x9A { get; private set; }
         public uint Unknown0x9C { get; private set; }
         public ushort Unknown0xA0 { get; private set; } //some other ID? items?
@@ -159,16 +159,16 @@ namespace NisAnim.Conversion
             Unknown0x7A = reader.ReadUInt16();
             Unknown0x7C = reader.ReadInt16();
             Unknown0x7E = reader.ReadUInt16();
-            Unknown0x80 = reader.ReadUInt16();
+            Slot1ItemID = reader.ReadUInt16();
             Unknown0x82 = reader.ReadUInt16();
             Unknown0x84 = reader.ReadUInt32();
-            Unknown0x88 = reader.ReadUInt16();
+            Slot2ItemID = reader.ReadUInt16();
             Unknown0x8A = reader.ReadUInt16();
             Unknown0x8C = reader.ReadUInt32();
-            Unknown0x90 = reader.ReadUInt16();
+            Slot3ItemID = reader.ReadUInt16();
             Unknown0x92 = reader.ReadUInt16();
             Unknown0x94 = reader.ReadUInt32();
-            Unknown0x98 = reader.ReadUInt16();
+            Slot4ItemID = reader.ReadUInt16();
             Unknown0x9A = reader.ReadUInt16();
             Unknown0x9C = reader.ReadUInt32();
             Unknown0xA0 = reader.ReadUInt16();

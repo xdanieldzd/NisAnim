@@ -58,6 +58,7 @@
     <Compile Include="Conversion\BaseFile.cs" />
     <Compile Include="Conversion\MapChr.cs" />
     <Compile Include="Conversion\MapPac.cs" />
+    <Compile Include="Conversion\MItemDat.cs" />
     <Compile Include="Conversion\NisPack.cs" />
     <Compile Include="Conversion\Obf.cs" />
     <Compile Include="Conversion\Pac.cs" />
