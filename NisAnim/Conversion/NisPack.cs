@@ -110,18 +110,34 @@ namespace NisAnim.Conversion
         public NisPack(string filePath)
             : base(filePath)
         {
-            using (EndianBinaryReader reader = new EndianBinaryReader(File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite), Endian.BigEndian))
+            using (FileStream stream = File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
             {
-                rawData = new MemoryStream(reader.ReadBytes((int)reader.BaseStream.Length), 0, (int)reader.BaseStream.Length, false, true);
+                stream.Seek(0x0C, SeekOrigin.Begin);
+                byte[] numFilesRaw = new byte[4];
+                stream.Read(numFilesRaw, 0, numFilesRaw.Length);
+                stream.Seek(0, SeekOrigin.Begin);
 
-                reader.BaseStream.Seek(0, SeekOrigin.Begin);
+                /* Crappy endianness detection GO! */
+                Endian endian = Endian.BigEndian;
+                if (numFilesRaw[0] != 0 && numFilesRaw[3] == 0)
+                    endian = Endian.LittleEndian;
 
-                Magic = Encoding.ASCII.GetString(reader.ReadBytes(0x08));
-                Unknown0x08 = reader.ReadUInt32();
-                NumFiles = reader.ReadUInt32();
+                using (EndianBinaryReader reader = new EndianBinaryReader(stream, endian))
+                {
+                    //OutOfMemoryException on 32bit, on files > 256MB?
+                    rawData = new MemoryStream(reader.ReadBytes((int)reader.BaseStream.Length), 0, (int)reader.BaseStream.Length, false, true);
 
-                Files = new NisPackFile[NumFiles];
-                for (int i = 0; i < Files.Length; i++) Files[i] = new NisPackFile(this, reader);
+                    reader.BaseStream.Seek(0, SeekOrigin.Begin);
+
+                    Magic = Encoding.ASCII.GetString(reader.ReadBytes(0x08));
+                    Unknown0x08 = reader.ReadUInt32();
+                    NumFiles = reader.ReadUInt32();
+
+                    Files = new NisPackFile[NumFiles];
+                    for (int i = 0; i < Files.Length; i++) Files[i] = new NisPackFile(this, reader);
+
+                    Files = Files.OrderBy(x => x.Filename).ToArray();
+                }
             }
         }
 

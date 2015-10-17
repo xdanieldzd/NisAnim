@@ -233,6 +233,10 @@ namespace NisAnim
                 {
                     (selectedObj as SpriteData).Image.Save(sfdDataFile.FileName);
                 }
+                else if (selectedObj is TxpImage)
+                {
+                    (selectedObj as TxpImage).Image.Save(sfdDataFile.FileName);
+                }
 
                 sfdDataFile.FileName = Path.GetFileName(sfdDataFile.FileName);
             }
@@ -396,6 +400,16 @@ namespace NisAnim
                 }
 
                 //todo!
+            }
+            else if (selectedObj is TxpImage)
+            {
+                e.Node.ContextMenuStrip = cmsTreeNode;
+                sfdDataFile.Filter = "Image Files (*.png)|*.png|All Files (*.*)|*.*";
+
+                TxpImage txp = (selectedObj as TxpImage);
+                glObjectNames.Add(txp.PrepareRender(glHelper));
+
+                render3D = false;
             }
 
             animCounter = 0;
@@ -593,7 +607,7 @@ namespace NisAnim
                             currentMatrix = Matrix4.Identity;
                             RenderAnimationFrame(animFrame, Vector2.Zero);
                         }
-                        else if (selectedObj is ImageInformation || selectedObj is SpriteData)
+                        else if (selectedObj is ImageInformation || selectedObj is SpriteData || selectedObj is TxpImage)
                         {
                             foreach (string glObjectName in glObjectNames)
                             {
@@ -611,6 +625,11 @@ namespace NisAnim
                                 {
                                     SpriteData sprite = (selectedObj as SpriteData);
                                     translationMatrix = Matrix4.CreateTranslation(-(sprite.Image.Width / 2), -(sprite.Image.Height / 2), 0.0f);
+                                }
+                                else if (selectedObj is TxpImage)
+                                {
+                                    TxpImage txp = (selectedObj as TxpImage);
+                                    translationMatrix = Matrix4.CreateTranslation(-(txp.Image.Width / 2), -(txp.Image.Height / 2), 0.0f);
                                 }
                                 glHelper.Shaders.SetUniformMatrix(Rendering.DefaultShaderName, "objectMatrix", false, translationMatrix);
 
